@@ -1,0 +1,27 @@
+# Unity cache/build folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild*/
+[Bb]uilds*/
+[Ll]ogs/
+UserSettings/
+MemoryCaptures/
+
+# IDE / auto files
+.vs/
+.vscode/
+*.csproj
+*.sln
+*.user
+*.unitypackage
+
+# Android/Gradle (nếu có)
+.gradle/
+*.apk
+*.aab
+
+# Giữ lại các thư mục cốt lõi
+!Assets/
+!Packages/
+!ProjectSettings/
