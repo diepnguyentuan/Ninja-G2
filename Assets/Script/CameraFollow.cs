@@ -3,44 +3,62 @@ using System.Collections; // Cần thiết cho Coroutines
 
 public class CameraFollow : MonoBehaviour
 {
-    public Transform target; // Gán Player vào đây
+    public Transform target; // Sẽ tự động tìm nếu rỗng
 
     [Header("Settings")]
-    public float smoothTime = 0.3f; // Thời gian camera bắt kịp
+    public float smoothTime = 0.3f;
 
-    // --- BIẾN CHO HIỆU ỨNG RUNG ---
+    // *** THAY ĐỔI LỚN 1: Xóa 'offset' tính toán ***
+    // Thay bằng một offset CỐ ĐỊNH. Bạn có thể chỉnh (0, 0, -10) trong Inspector
+    // để camera lùi ra xa hoặc lại gần.
+    [SerializeField] private Vector3 offset = new Vector3(0f, 0f, -10f);
+
+    // --- BIẾN CHO HIỆU ỨNG RUNG (Giữ nguyên) ---
     [Header("Camera Shake")]
-    public float shakeDuration = 0.1f; // Thời gian rung
-    public float shakeMagnitude = 0.1f; // Cường độ rung
-    private Coroutine currentShakeCoroutine; // Quản lý coroutine rung
-    private Vector3 originalPosition; // Lưu vị trí gốc
-    // --- ----------------------- ---
+    public float shakeDuration = 0.1f;
+    public float shakeMagnitude = 0.1f;
+    private Coroutine currentShakeCoroutine;
+    private Vector3 originalPosition;
 
-    private PlayerMove playerMoveScript; // Script của Player
-    private Vector3 offset; // Khoảng cách ban đầu camera-player
-    private float lowY; // Giới hạn dưới của camera
-    private Vector3 velocity = Vector3.zero; // Biến cần cho SmoothDamp
+    // *** THAY ĐỔI LỚN 2: Xóa 'lowY' và 'playerMoveScript' ***
+    // Logic 'lowY' cũ bị lỗi khi đổi scene. Chúng ta sẽ bỏ nó đi
+    // để ưu tiên sửa lỗi "không thấy Player".
+    // private PlayerMove playerMoveScript;
+    // private float lowY;
+
+    private Vector3 velocity = Vector3.zero;
 
     void Start()
     {
+        // *** THAY ĐỔI LỚN 3: TỰ ĐỘNG TÌM PLAYER ***
+        // Nếu 'target' (Player) chưa được gán trong Inspector
         if (target == null)
         {
-            Debug.LogWarning("CameraFollow: Chưa gán Target (nhân vật)!");
-            return;
+            // Tự tìm Player bằng Tag
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+            {
+                target = player.transform;
+            }
+            else
+            {
+                // Nếu không tìm thấy, báo lỗi và dừng lại
+                Debug.LogError("CameraFollow: KHÔNG THỂ TÌM THẤY đối tượng có Tag 'Player'!");
+                return; // Dừng hàm Start
+            }
         }
 
-        playerMoveScript = target.GetComponent<PlayerMove>();
-        if (playerMoveScript == null)
-        {
-            Debug.LogError("CameraFollow: Không tìm thấy script 'PlayerMove' trên Target!");
-            // Vẫn tiếp tục chạy nhưng chức năng giới hạn Y sẽ không hoạt động
-        }
+        // *** THAY ĐỔI LỚN 4: Xóa logic Start() cũ ***
+        // Xóa hết các dòng tính 'playerMoveScript', 'offset' và 'lowY' cũ
+        // playerMoveScript = target.GetComponent<PlayerMove>(); ...
+        // offset = transform.position - target.position; // <-- NGUYÊN NHÂN GÂY LỖI
+        // lowY = transform.position.y;
 
-        offset = transform.position - target.position;
-        lowY = transform.position.y;
-
-        // Lưu vị trí ban đầu (quan trọng cho ShakeRoutine)
-        originalPosition = transform.localPosition;
+        // *** THAY ĐỔI LỚN 5: "Snap" camera ***
+        // Di chuyển camera NGAY LẬP TỨC đến vị trí Player ở frame đầu tiên
+        // Điều này đảm bảo 'originalPosition' cho việc rung (shake) được đặt đúng
+        transform.position = target.position + offset;
+        originalPosition = transform.position;
     }
 
     void LateUpdate()
@@ -48,69 +66,49 @@ public class CameraFollow : MonoBehaviour
         // Chỉ di chuyển camera theo Player nếu KHÔNG đang rung
         if (currentShakeCoroutine == null)
         {
-            if (target == null) return; // Kiểm tra target lần nữa
+            if (target == null) return; // Kiểm tra lại (đề phòng Player chết)
 
+            // Vị trí mục tiêu mới dựa trên offset cố định
             Vector3 targetCamPosition = target.position + offset;
 
-            // Xử lý giới hạn dưới (lowY) chỉ khi có playerMoveScript
-            if (playerMoveScript != null)
-            {
-                if (playerMoveScript.IsGrounded())
-                {
-                    // Cập nhật lowY khi player chạm đất ở vị trí thấp hơn
-                    if (targetCamPosition.y < lowY) // Chỉ cập nhật nếu thực sự thấp hơn
-                    {
-                        lowY = targetCamPosition.y;
-                    }
-                }
-                // Nếu đang rơi và vị trí mục tiêu thấp hơn lowY, giữ camera lại
-                else if (targetCamPosition.y < lowY)
-                {
-                    targetCamPosition.y = lowY;
-                }
-            }
+            // *** THAY ĐỔI LỚN 6: Xóa logic 'lowY' cũ ***
+            // if (playerMoveScript != null) ... (toàn bộ khối if đó đã bị xóa)
 
             // Di chuyển camera mượt mà
             transform.position = Vector3.SmoothDamp(transform.position, targetCamPosition, ref velocity, smoothTime);
 
             // Liên tục cập nhật vị trí gốc khi camera di chuyển bình thường
-            originalPosition = transform.localPosition;
+            originalPosition = transform.position;
         }
     }
 
-    // --- HÀM KÍCH HOẠT RUNG ---
+    // --- HÀM RUNG (Giữ nguyên, không thay đổi) ---
     public void TriggerShake()
     {
-        // Dừng coroutine cũ nếu đang chạy và trả về vị trí gốc
         if (currentShakeCoroutine != null)
         {
             StopCoroutine(currentShakeCoroutine);
-            transform.localPosition = originalPosition; // Reset ngay lập tức
+            transform.localPosition = originalPosition;
         }
-        // Bắt đầu coroutine mới
         currentShakeCoroutine = StartCoroutine(ShakeRoutine());
     }
 
-    // --- COROUTINE XỬ LÝ RUNG ---
     private IEnumerator ShakeRoutine()
     {
         float elapsed = 0.0f;
 
         while (elapsed < shakeDuration)
         {
-            // Tính toán độ lệch ngẫu nhiên
             float xOffset = Random.Range(-0.5f, 0.5f) * shakeMagnitude;
             float yOffset = Random.Range(-0.5f, 0.5f) * shakeMagnitude;
 
-            // Áp dụng độ lệch vào vị trí gốc ĐÃ LƯU
             transform.localPosition = new Vector3(originalPosition.x + xOffset, originalPosition.y + yOffset, originalPosition.z);
 
             elapsed += Time.deltaTime;
-            yield return null; // Chờ frame tiếp theo
+            yield return null;
         }
 
-        // Đảm bảo trả về vị trí gốc sau khi rung xong
         transform.localPosition = originalPosition;
-        currentShakeCoroutine = null; // Đánh dấu đã rung xong
+        currentShakeCoroutine = null;
     }
 }
