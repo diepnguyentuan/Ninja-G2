@@ -6,6 +6,7 @@ TagManager:
   tags:
   - player
   - ground
+  - EnemyAttack
   layers:
   - Default
   - TransparentFX
@@ -13,7 +14,7 @@ TagManager:
   - Projectile
   - Water
   - UI
-  - 
+  - Monster
   - 
   - 
   - 
