@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 1345834696972372529}
   - component: {fileID: 1125777829323863972}
   - component: {fileID: 7233564767113935083}
+  - component: {fileID: 5931866135403801802}
   m_Layer: 0
   m_Name: Coin
   m_TagString: Untagged
@@ -101,3 +102,17 @@ CircleCollider2D:
   m_Offset: {x: 0, y: 0.045}
   serializedVersion: 2
   m_Radius: 0.045
+--- !u!114 &5931866135403801802
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5507768106847519006}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb83e0b6890c15d4384c922f14aad81a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  itemType: 0
+  healAmount: 20
