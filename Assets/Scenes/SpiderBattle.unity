@@ -1732,6 +1732,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   target: {fileID: 1920406800}
   smoothTime: 0.3
+  shakeDuration: 0.1
+  shakeMagnitude: 0.1
 --- !u!4 &862404807 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 364813924581898461, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
@@ -4347,6 +4349,13 @@ MonoBehaviour:
   healthBarAttachPoint: {fileID: 192048805}
   knockbackPower: 0.5
   knockbackDuration: 0.2
+  stunDurationAfterKnockback: 0.3
+  coinPrefab: {fileID: 5507768106847519006, guid: 42310f8bef3cb5a47a13454a51c25b05, type: 3}
+  coinDropAmount: 1
+  coinDropChance: 1
+  healthPotionPrefab: {fileID: 1513925811022086358, guid: 5ad57277e8e878546ad504b638d54320, type: 3}
+  potionDropChance: 1
+  lootDropForce: 2.5
 --- !u!1001 &2235767779819466064
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4659,6 +4668,14 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 1784691018}
     m_Modifications:
+    - target: {fileID: 5570247320607349496, guid: 6b640f5b3017ae3448a15f33e36eff9d, type: 3}
+      propertyPath: m_FlipX
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5570247320607349496, guid: 6b640f5b3017ae3448a15f33e36eff9d, type: 3}
+      propertyPath: m_FlipY
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7996637714217268593, guid: 6b640f5b3017ae3448a15f33e36eff9d, type: 3}
       propertyPath: m_Enabled
       value: 1

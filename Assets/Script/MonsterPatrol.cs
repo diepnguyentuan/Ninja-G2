@@ -1,97 +1,118 @@
 ﻿using System;
 using System.Collections;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
+[RequireComponent(typeof(Animator))]
+[RequireComponent(typeof(Collider2D))]
 public class MonsterPatrol : MonoBehaviour, IDamageable
 {
+    #region Public Variables (Inspector Settings)
+
     [Header("Patrol Settings")]
-    public float moveSpeed = 2f; // Tốc độ di chuyển của quái vật
-    public float patrolDistance = 4f; // Khoảng cách đi tuần tra từ điểm bắt đầu
-    public float idleTime = 5f; // Thời gian đứng yên
+    public float moveSpeed = 2f;
+    public float patrolDistance = 4f;
+    public float idleTime = 2f;
 
     [Header("AI Settings")]
-    public float detectionRange = 10f; // Khoảng cách phát hiện người chơi
-    public float attackRange = 1.5f; // Khoảng cách để tấn công
-    public float maxChaseDistance = 10f; // Quái vật sẽ ngừng đuổi nếu đi xa hơn khoảng cách này từ điểm bắt đầu
-    public Transform playerTransform; // Gán transform của người chơi vào đây
+    public float detectionRange = 10f;
+    public float attackRange = 2f;
+    public float maxChaseDistance = 12f;
+    public Transform playerTransform;
     public GameObject attackHitbox;
-    public float searchDuration = 3f; // Thời gian "Tìm kiếm" trước khi từ bỏ
+    public float searchDuration = 3f;
 
     [Header("Health Settings")]
-    public int maxHealth = 3; // Quái sẽ chết sau 3 hit
-    private int currentHealth;
-    private bool isDead = false;
+    public int maxHealth = 3;
 
     [Header("Health Bar")]
-    public GameObject healthBarCanvasPrefab; // Prefab thanh máu ta sẽ tạo
-    public Transform healthBarAttachPoint; // Vị trí để gắn thanh máu (trên đầu quái)
-    private HealthBar healthBarScript; // Script điều khiển thanh máu
+    public GameObject healthBarCanvasPrefab;
+    public Transform healthBarAttachPoint;
 
     [Header("Physics")]
-    public float knockbackPower = 0.5f; // Quái sẽ bị đẩy lùi bao xa
-    public float knockbackDuration = 0.2f; // Thời gian văng
+    public float knockbackPower = 2.5f;
+    public float knockbackDuration = 0.2f;
+    public float stunDurationAfterKnockback = 0.3f;
 
     [Header("Loot Drop")]
-    public GameObject coinPrefab; // Gán Prefab Coin vào đây
-    public int coinDropAmount = 1; // Số lượng xu rơi ra
-    [Range(0f, 1f)] // Thanh trượt từ 0 đến 1
-    public float coinDropChance = 0.75f; // Tỉ lệ rơi xu (75%)
-
-    // Thêm các biến tương tự nếu có Health Potion
+    public GameObject coinPrefab;
+    public int coinDropAmount = 1;
+    [Range(0f, 1f)]
+    public float coinDropChance = 0.75f;
     public GameObject healthPotionPrefab;
     [Range(0f, 1f)]
-    public float potionDropChance = 0.1f; // 10%
+    public float potionDropChance = 0.1f;
+    public float lootDropForce = 2.5f;
 
-    // Private variables
+    #endregion
+
+    #region Private Variables
+
+    private int currentHealth;
+    private bool isDead = false;
+    private HealthBar healthBarScript;
+
     private Vector3 startPosition;
-    private Vector3 targetPosition;
-    private Vector3 initialScale; // Thêm biến để lưu scale ban đầu
-    private bool isFacingRight = true;
-    private Coroutine currentRoutine; // Dùng một biến Coroutine duy nhất để quản lý
+    private Vector3 initialScale;
+    private bool isFacingRight = true; // Sẽ được cập nhật chính xác trong Start()
+    private Coroutine currentAICoroutine;
+
     private bool isChasing = false;
     private bool isAttacking = false;
     private bool isReturning = false;
-    private bool isSearching = false; // Trạng thái mới: đang tìm kiếm
+    private bool isSearching = false;
     private bool isTakingDamage = false;
 
-    // Components
     private Animator animator;
+    private Collider2D mainCollider;
+
+    private readonly int hashIsWalking = Animator.StringToHash("isWalking");
+    private readonly int hashIsChasing = Animator.StringToHash("isChasing");
+    private readonly int hashIsAttacking = Animator.StringToHash("isAttacking");
+    private readonly int hashAttack = Animator.StringToHash("Attack");
+    private readonly int hashTakeDamage = Animator.StringToHash("TakeDamage");
+    private readonly int hashDeath = Animator.StringToHash("Death");
+
+    #endregion
+
+    #region Initialization
 
     void Start()
     {
         animator = GetComponent<Animator>();
+        mainCollider = GetComponent<Collider2D>();
         startPosition = transform.position;
-        initialScale = transform.localScale; // Lưu lại scale ban đầu
-
-        // Xác định hướng ban đầu của sprite
-        isFacingRight = (initialScale.x > 0);
+        initialScale = transform.localScale;
+        // Xác định chính xác hướng ban đầu dựa trên scale X
+        isFacingRight = (initialScale.x < 0);
 
         currentHealth = maxHealth;
 
+        InitializeHealthBar();
+        FindPlayer();
+
+        SwitchState(AIState.Patrolling);
+    }
+
+    void InitializeHealthBar()
+    {
         if (healthBarCanvasPrefab != null && healthBarAttachPoint != null)
         {
-            // Tạo thanh máu từ Prefab
-            GameObject healthBarInstance = Instantiate(healthBarCanvasPrefab, healthBarAttachPoint.position, Quaternion.identity);
-
-            // Gắn thanh máu làm con của "Attach Point"
-            healthBarInstance.transform.SetParent(healthBarAttachPoint, false);
-
+            GameObject healthBarInstance = Instantiate(healthBarCanvasPrefab, healthBarAttachPoint);
             RectTransform healthBarRect = healthBarInstance.GetComponent<RectTransform>();
-            // Ép nó về đúng vị trí (0,0,0) so với cha (AttachPoint)
-            healthBarRect.localPosition = Vector3.zero;
-            healthBarRect.localRotation = Quaternion.identity;
-            healthBarRect.localScale = Vector3.one;
-
-            // Lấy script điều khiển từ thanh máu
-            healthBarScript = healthBarInstance.GetComponentInChildren<HealthBar>();
-
-            if (healthBarScript != null)
+            if (healthBarRect != null)
             {
-                healthBarScript.UpdateHealthBar(currentHealth, maxHealth); // Cập nhật lần đầu
+                healthBarRect.localPosition = Vector3.zero;
+                healthBarRect.localRotation = Quaternion.identity;
+                healthBarRect.localScale = Vector3.one;
             }
+            healthBarScript = healthBarInstance.GetComponentInChildren<HealthBar>();
+            UpdateHealthBarVisuals();
         }
+    }
 
-        // Tự động tìm người chơi nếu chưa được gán
+    void FindPlayer()
+    {
         if (playerTransform == null)
         {
             GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
@@ -99,332 +120,333 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
             {
                 playerTransform = playerObject.transform;
             }
+            else
+            {
+                Debug.LogWarning($"Quái vật {gameObject.name} không tìm thấy Player!", this);
+            }
         }
-
-        // Bắt đầu tuần tra
-        currentRoutine = StartCoroutine(PatrolRoutine());
     }
+
+    #endregion
+
+    #region Update Loop (Decision Making)
 
     void Update()
     {
-        if (isDead) return;
-        // Nếu đang bị thương, KHÔNG làm bất cứ việc gì khác
-        if (isTakingDamage) return;
-        // Nếu không tìm thấy người chơi, không làm gì cả
+        if (isDead || isTakingDamage) return;
         if (playerTransform == null) return;
 
         float distanceToPlayerX = Mathf.Abs(transform.position.x - playerTransform.position.x);
         float distanceToPlayerY = Mathf.Abs(transform.position.y - playerTransform.position.y);
-
         float distanceFromStart = Vector3.Distance(transform.position, startPosition);
 
         if (isChasing)
         {
-            // Điều kiện để NGỪNG đuổi theo
-            if (distanceToPlayerX > detectionRange || distanceFromStart > maxChaseDistance || distanceToPlayerY > 3f)
-            {
-                isChasing = false;
-                animator.SetBool("isChasing", false);
+            // *** SỬA LỖI 1: Luôn cập nhật hướng quay mặt KHI ĐANG CHASE ***
+            FacePlayer(); // Gọi ở đây đảm bảo nó quay đúng hướng trước khi di chuyển/tấn công
+            // *** ---------------------------------------------------- ***
 
-                isAttacking = false;
-                animator.SetBool("isAttacking", false);
-                if (currentRoutine != null)
-                {
-                    StopCoroutine(currentRoutine);
-                }
-                currentRoutine = StartCoroutine(SearchRoutine());
-                return;
+            if (ShouldStopChasing(distanceToPlayerX, distanceFromStart, distanceToPlayerY))
+            {
+                SwitchState(AIState.Searching);
             }
             else
             {
-                // Tiếp tục đuổi theo
                 HandleChasingAndAttacking(distanceToPlayerX, distanceToPlayerY);
             }
         }
-        else // Không đang đuổi theo (đang tuần tra hoặc đang quay về)
+        else // Not chasing
         {
-            // Điều kiện để BẮT ĐẦU đuổi theo
-            if (distanceToPlayerX <= detectionRange && distanceToPlayerY < 3f && !isReturning) // Thêm 3f hoặc giá trị phù hợp
+            if (ShouldStartChasing(distanceToPlayerX, distanceToPlayerY))
             {
-                if (distanceToPlayerX <= detectionRange && distanceToPlayerY < 3f && !isReturning)
-                {
-                    // Player đã ở trong tầm
-
-                    if (isSearching)
-                    {
-                        // Nếu đang tìm kiếm -> thấy player -> Hủy tìm kiếm
-                        Debug.Log("Player re-acquired during search!");
-                        isSearching = false;
-                        if (currentRoutine != null) StopCoroutine(currentRoutine); // Dừng SearchRoutine
-                    }
-                    else
-                    {
-                        // Nếu đang tuần tra -> thấy player -> Dừng tuần tra
-                        if (currentRoutine != null) StopCoroutine(currentRoutine); // Dừng PatrolRoutine
-                    }
-
-                    // Bắt đầu đuổi theo (hoặc tiếp tục đuổi)
-                    isChasing = true;
-                    animator.SetBool("isChasing", true);
-                    animator.SetBool("isWalking", false);
-                    currentRoutine = StartCoroutine(ChaseRoutine());
-                }
+                SwitchState(AIState.Chasing);
             }
         }
     }
 
-    // Coroutine riêng cho việc đuổi theo để quản lý trạng thái trong Update
-    private IEnumerator ChaseRoutine()
+    bool ShouldStopChasing(float distPX, float distStart, float distPY)
     {
-        while (isChasing)
+        return distPX > detectionRange || distStart > maxChaseDistance || distPY > 3f;
+    }
+
+    bool ShouldStartChasing(float distPX, float distPY)
+    {
+        return distPX <= detectionRange && distPY < 3f && !isSearching;
+    }
+
+    #endregion
+
+    #region State Switching Logic
+
+    private enum AIState { Patrolling, Chasing, Searching, Returning }
+
+    void SwitchState(AIState newState)
+    {
+        StopCurrentAICoroutine();
+
+        isChasing = (newState == AIState.Chasing);
+        isSearching = (newState == AIState.Searching);
+        isReturning = (newState == AIState.Returning);
+
+        if (!isChasing) isAttacking = false;
+
+        animator.SetBool(hashIsChasing, isChasing);
+        animator.SetBool(hashIsWalking, newState == AIState.Returning || newState == AIState.Patrolling);
+        animator.SetBool(hashIsAttacking, isAttacking);
+
+        switch (newState)
         {
-            yield return null; // Coroutine này chỉ chạy để Update có thể dừng nó
+            case AIState.Patrolling:
+                currentAICoroutine = StartCoroutine(PatrolRoutine());
+                break;
+            case AIState.Chasing:
+                // *** SỬA LỖI 1: Quay mặt ngay khi bắt đầu Chase ***
+                FacePlayer(); // Đảm bảo quay đúng hướng ngay khi chuyển sang Chase
+                              // *** ------------------------------------------ ***
+                              // Logic chính nằm trong Update
+                break;
+            case AIState.Searching:
+                currentAICoroutine = StartCoroutine(SearchRoutine());
+                break;
+            case AIState.Returning:
+                currentAICoroutine = StartCoroutine(ReturnRoutine());
+                break;
         }
     }
 
-    void HandleChasingAndAttacking(float distanceX, float distanceY)
+    void StopCurrentAICoroutine()
     {
-        if (isAttacking) return;
-        FacePlayer();
-        // HÀNH ĐỘNG 1: Tấn công nếu đủ điều kiện
-        if (distanceX <= attackRange && distanceY < 1.0f)
+        if (currentAICoroutine != null)
         {
-            isAttacking = true;
-            animator.SetBool("isAttacking", true);
-            // DỪNG di chuyển bằng cách không gọi lệnh di chuyển
-            // (Bạn có thể thêm lệnh `rb.velocity = Vector2.zero;` nếu dùng Rigidbody để di chuyển)
-            animator.SetTrigger("Attack");
-            Debug.Log("In Attack Range. Stopping and Attacking.");
+            StopCoroutine(currentAICoroutine);
+            currentAICoroutine = null;
         }
-        // HÀNH ĐỘNG 2: Nếu không tấn công được, thì mới di chuyển để đuổi theo
-        else if (isChasing) // Thêm điều kiện isChasing để chắc chắn
+        isSearching = false;
+    }
+
+    #endregion
+
+    #region AI Behaviours (Coroutines & Handlers)
+
+    // PatrolRoutine giữ nguyên logic Flip cũ
+    private IEnumerator PatrolRoutine()
+    {
+        Vector3 targetPosition;
+        while (!isDead)
         {
-            float chaseSpeed = moveSpeed * 1.5f;
-            transform.position = Vector2.MoveTowards(transform.position, new Vector2(playerTransform.position.x, transform.position.y), chaseSpeed * Time.deltaTime);
+            animator.SetBool(hashIsWalking, false);
+            if (ShouldInterruptAI()) yield break;
+            yield return new WaitForSeconds(idleTime);
+            if (ShouldInterruptAI()) yield break;
+
+            targetPosition = startPosition - new Vector3(patrolDistance, 0, 0);
+            animator.SetBool(hashIsWalking, true);
+            while (Vector3.Distance(transform.position, targetPosition) > 0.01f)
+            {
+                if (ShouldInterruptAI()) yield break;
+                // *** QUAN TRỌNG: Đảm bảo quay đúng hướng KHI tuần tra trái ***
+                EnsureFacingDirection(false); // Luôn quay trái khi đi về targetPosition (bên trái)
+                // *** ---------------------------------------------------- ***
+                transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
+                yield return null;
+            }
+            if (ShouldInterruptAI()) yield break;
+            transform.position = targetPosition;
+
+            animator.SetBool(hashIsWalking, false);
+            if (ShouldInterruptAI()) yield break;
+            yield return new WaitForSeconds(idleTime);
+            if (ShouldInterruptAI()) yield break;
+
+            targetPosition = startPosition;
+            animator.SetBool(hashIsWalking, true);
+            while (Vector3.Distance(transform.position, startPosition) > 0.01f)
+            {
+                if (ShouldInterruptAI()) yield break;
+                // *** QUAN TRỌNG: Đảm bảo quay đúng hướng KHI tuần tra phải ***
+                EnsureFacingDirection(true); // Luôn quay phải khi đi về startPosition (bên phải)
+                                             // *** ---------------------------------------------------- ***
+                transform.position = Vector3.MoveTowards(transform.position, startPosition, moveSpeed * Time.deltaTime);
+                yield return null;
+            }
+            if (ShouldInterruptAI()) yield break;
+            transform.position = startPosition;
+
         }
     }
 
-    // Hàm này sẽ bật hitbox
-    public void EnableAttackHitbox()
-    {
-        if (attackHitbox != null)
-        {
-            attackHitbox.SetActive(true);
-        }
-    }
 
-    // Hàm này sẽ tắt hitbox
-    public void DisableAttackHitbox()
+    private IEnumerator SearchRoutine()
     {
-        if (attackHitbox != null)
-        {
-            attackHitbox.SetActive(false);
-        }
-    }
+        animator.SetBool(hashIsWalking, false);
+        animator.SetBool(hashIsChasing, false);
 
-    void FacePlayer()
-    {
-        // Nếu người chơi ở bên phải và quái vật đang quay trái -> Lật
-        if (playerTransform.position.x < transform.position.x && !isFacingRight)
+        float searchTimer = 0f;
+        while (searchTimer < searchDuration)
         {
-            Flip();
+            if (ShouldInterruptAI()) yield break;
+            searchTimer += Time.deltaTime;
+            yield return null;
         }
-        // Nếu người chơi ở bên trái và quái vật đang quay phải -> Lật
-        else if (playerTransform.position.x > transform.position.x && isFacingRight)
+
+        if (!isDead && !isTakingDamage && !isChasing)
         {
-            Flip();
+            SwitchState(AIState.Returning);
         }
     }
 
     private IEnumerator ReturnRoutine()
     {
-        animator.SetBool("isWalking", true);
+        isReturning = true;
+        animator.SetBool(hashIsWalking, true);
 
-        // Quay mặt về phía điểm bắt đầu
-        if (startPosition.x < transform.position.x && !isFacingRight) Flip();
-        else if (startPosition.x > transform.position.x && isFacingRight) Flip();
+        // *** SỬA LỖI 2: Quay mặt đúng hướng NGAY KHI BẮT ĐẦU quay về ***
+        EnsureFacingDirection(startPosition.x > transform.position.x); // Quay về hướng của startPosition
+        // *** ---------------------------------------------------- ***
 
         while (Vector3.Distance(transform.position, startPosition) > 0.1f)
         {
-            if (isTakingDamage) yield break;
+            if (ShouldInterruptAI()) yield break;
+            // *** QUAN TRỌNG: Đảm bảo quay đúng hướng TRONG KHI quay về ***
+            EnsureFacingDirection(startPosition.x > transform.position.x);
+            // *** ---------------------------------------------------- ***
             transform.position = Vector3.MoveTowards(transform.position, startPosition, moveSpeed * Time.deltaTime);
             yield return null;
         }
 
-        transform.position = startPosition;
-        animator.SetBool("isWalking", false);
-
-        // THAY ĐỔI LỚN: Reset lại hướng và scale về đúng trạng thái ban đầu một cách triệt để
-        transform.localScale = initialScale;
-        isFacingRight = (initialScale.x > 0); // Cập nhật lại trạng thái isFacingRight cho đúng
-
-        isReturning = false; // BÁO HIỆU: ĐÃ VỀ ĐẾN NHÀ, SẴN SÀNG CHIẾN ĐẤU LẠI
-
-        // Bắt đầu lại tuần tra
-        currentRoutine = StartCoroutine(PatrolRoutine());
-    }
-
-    private IEnumerator PatrolRoutine()
-    {
-        // Logic tuần tra như cũ
-        while (true)
+        // Đã về đến nơi và không bị ngắt
+        if (!isDead && !isTakingDamage && !isChasing)
         {
-            if (isTakingDamage) yield break;
-            animator.SetBool("isWalking", false);
-            yield return new WaitForSeconds(idleTime);
-
-            if (isTakingDamage) yield break;
-
-            targetPosition = startPosition - new Vector3(patrolDistance, 0, 0);
-
-            animator.SetBool("isWalking", true);
-            while (Vector3.Distance(transform.position, targetPosition) > 0.01f)
-            {
-                if (isTakingDamage) yield break;
-                transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
-                yield return null;
-            }
-            transform.position = targetPosition;
-
-            animator.SetBool("isWalking", false);
-            yield return new WaitForSeconds(idleTime);
-
-            if (isTakingDamage) yield break;
-
-            Flip();
-
-            animator.SetBool("isWalking", true);
-            while (Vector3.Distance(transform.position, startPosition) > 0.01f)
-            {
-                if (isTakingDamage) yield break;
-                transform.position = Vector3.MoveTowards(transform.position, startPosition, moveSpeed * Time.deltaTime);
-                yield return null;
-            }
             transform.position = startPosition;
+            animator.SetBool(hashIsWalking, false);
+            // Reset chính xác về trạng thái ban đầu
+            transform.localScale = initialScale;
+            isFacingRight = (initialScale.x < 0);
+            isReturning = false;
+            SwitchState(AIState.Patrolling);
+        }
+    }
 
+    // Xử lý logic khi đang Chase
+    void HandleChasingAndAttacking(float distanceX, float distanceY)
+    {
+        // FacePlayer() đã được gọi trong Update()
+
+        if (isAttacking) return; // Đang animation attack thì dừng
+
+        // Ưu tiên tấn công
+        if (distanceX <= attackRange && distanceY < 1.0f)
+        {
+            StartAttack();
+        }
+        else // Nếu không thì di chuyển
+        {
+            MoveTowardsPlayer();
+        }
+    }
+
+    // Hàm gọi để đảm bảo quái vật quay mặt về Player
+    void FacePlayer()
+    {
+        if (playerTransform == null || isAttacking || isTakingDamage || isDead) return;
+        EnsureFacingDirection(playerTransform.position.x > transform.position.x);
+    }
+
+    // *** HÀM MỚI: Đảm bảo quái vật quay đúng hướng chỉ định ***
+    // faceRight = true: quay phải
+    // faceRight = false: quay trái
+    void EnsureFacingDirection(bool shouldFaceRight)
+    {
+        if (shouldFaceRight && !isFacingRight) // Cần quay phải, đang quay trái -> Lật
+        {
             Flip();
         }
-    }
-
-    private IEnumerator SearchRoutine()
-    {
-        Debug.Log("Player lost! Searching...");
-        isSearching = true;
-
-        // Đứng yên (Animator sẽ tự động chuyển từ Run -> Idle
-        // vì isChasing = false và isWalking = false)
-
-        yield return new WaitForSeconds(searchDuration);
-
-        if (!isSearching || isTakingDamage) yield break;
-        // HẾT GIỜ: Nếu chúng ta vẫn ở đây (chưa bị ngắt bởi Update)
-        // có nghĩa là player không xuất hiện trở lại.
-        Debug.Log("Search finished. Player not found. Returning home.");
-        isSearching = false;
-        isReturning = true; // Bây giờ mới bắt đầu quay về
-        currentRoutine = StartCoroutine(ReturnRoutine());
-    }
-
-    void Flip()
-    {
-        isFacingRight = !isFacingRight;
-        Vector3 localScale = transform.localScale;
-        localScale.x *= -1;
-        transform.localScale = localScale;
-    }
-
-    void OnDrawGizmosSelected()
-    {
-        // Vẽ vòng tròn để dễ hình dung tầm phát hiện và tấn công
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, detectionRange);
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, attackRange);
-        // Vẽ đường giới hạn đuổi theo
-        if (Application.isPlaying)
+        else if (!shouldFaceRight && isFacingRight) // Cần quay trái, đang quay phải -> Lật
         {
-            Gizmos.color = Color.blue;
-            Gizmos.DrawWireSphere(startPosition, maxChaseDistance);
+            Flip();
         }
+        // Nếu đã đúng hướng thì không làm gì
     }
-    public void AttackComplete()
+    // *** ------------------------------------------------ ***
+
+    bool ShouldInterruptAI()
     {
-        isAttacking = false;
-        animator.SetBool("isAttacking", false);
+        return isDead || isTakingDamage || isChasing;
     }
 
-    // HÀM MỚI: Đây là hàm từ interface IDamageable
-    public void TakeDamage(int amount, Vector2 hitPoint)
+    #endregion
+
+    #region Combat Logic (Giữ Nguyên)
+
+    void StartAttack()
     {
-        // Nếu đã chết hoặc đang bị thương, không nhận thêm sát thương
+        isAttacking = true;
+        animator.SetBool(hashIsAttacking, true);
+        animator.SetTrigger(hashAttack);
+    }
+
+    void MoveTowardsPlayer()
+    {
+        if (playerTransform == null) return;
+        animator.SetBool(hashIsAttacking, false);
+        float chaseSpeed = moveSpeed * 1.5f;
+        transform.position = Vector2.MoveTowards(
+            transform.position,
+            new Vector2(playerTransform.position.x, transform.position.y),
+            chaseSpeed * Time.deltaTime
+        );
+    }
+
+    public void EnableAttackHitbox() { if (attackHitbox != null) attackHitbox.SetActive(true); }
+    public void DisableAttackHitbox() { if (attackHitbox != null) attackHitbox.SetActive(false); }
+    public void AttackComplete() { isAttacking = false; animator.SetBool(hashIsAttacking, false); }
+
+    public void TakeDamage(int amount, Vector2 playerPosition)
+    {
         if (isDead || isTakingDamage) return;
 
-        // 1. Trừ máu
         currentHealth -= amount;
-        Debug.Log("Monster health: " + currentHealth);
+        UpdateHealthBarVisuals();
 
-        // 2. Cập nhật thanh máu
-        if (healthBarScript != null)
-        {
-            healthBarScript.UpdateHealthBar(currentHealth, maxHealth);
-        }
-
-        // 3. Kiểm tra xem đã chết chưa
         if (currentHealth <= 0)
         {
-            Die(); // Gọi hàm chết
-            return; // Dừng lại, không chạy "hit stun" nữa
+            SwitchStateToDeath();
         }
-        StopAllCoroutines();
-        StartCoroutine(KnockbackRoutine(hitPoint));
+        else
+        {
+            StopCurrentAICoroutine();
+            StartCoroutine(KnockbackRoutine(playerPosition));
+        }
     }
 
     private IEnumerator KnockbackRoutine(Vector2 playerPosition)
     {
-        // 1. "Đóng băng" AI
         isTakingDamage = true;
+        animator.SetTrigger(hashTakeDamage);
 
-        // 2. Kích hoạt animation bị đánh (Chỉ để hiển thị)
-        animator.SetTrigger("TakeDamage");
-
-        // 3. Tính toán hướng văng
         Vector2 knockbackDirection = ((Vector2)transform.position - playerPosition).normalized;
-
-        // 4. Thực hiện văng
         float timer = 0;
         Vector3 startPos = transform.position;
         Vector3 endPos = startPos + (Vector3)knockbackDirection * knockbackPower;
-
-        while (timer < knockbackDuration) // knockbackDuration = 0.2f (ví dụ)
+        while (timer < knockbackDuration)
         {
-            // Kiểm tra nếu chết giữa chừng (hiếm nhưng có thể)
             if (isDead) yield break;
-
             transform.position = Vector3.Lerp(startPos, endPos, timer / knockbackDuration);
             timer += Time.deltaTime;
             yield return null;
         }
 
-        // --- 5. LOGIC MỚI: TỰ HỒI PHỤC ---
-        // Đợi thêm một khoảng thời gian "choáng" sau khi văng xong.
-        // Thời gian này nên bằng hoặc hơi dài hơn độ dài animation "TakeDamage".
-        // Ví dụ: Nếu animation dài 0.5 giây, bạn có thể đợi 0.3 giây nữa (0.2 văng + 0.3 choáng).
-        float stunDurationAfterKnockback = 0.3f;
         yield return new WaitForSeconds(stunDurationAfterKnockback);
 
-        // Kiểm tra lại nếu đã chết trong lúc đợi
         if (isDead) yield break;
 
-        // 6. Tự gỡ khóa và bật lại AI (Không cần DamageComplete nữa)
-        Debug.Log("Knockback/Stun finished. Resuming AI.");
         isTakingDamage = false;
+        DecideNextStateAfterDamage();
+    }
 
-        // Quyết định trạng thái tiếp theo
-        if (playerTransform == null)
-        {
-            currentRoutine = StartCoroutine(ReturnRoutine());
-            yield break;
-        }
+    void DecideNextStateAfterDamage()
+    {
+        if (playerTransform == null) { SwitchState(AIState.Returning); return; }
 
         float distanceToPlayerX = Mathf.Abs(transform.position.x - playerTransform.position.x);
         float distanceToPlayerY = Mathf.Abs(transform.position.y - playerTransform.position.y);
@@ -432,45 +454,114 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
         if (distanceToPlayerX <= detectionRange && distanceToPlayerY < 3f && distanceFromStart <= maxChaseDistance)
         {
-            isChasing = true;
-            animator.SetBool("isChasing", true);
-            currentRoutine = StartCoroutine(ChaseRoutine());
+            SwitchState(AIState.Chasing);
         }
         else
         {
-            isReturning = true;
-            currentRoutine = StartCoroutine(ReturnRoutine());
+            SwitchState(AIState.Returning);
         }
     }
 
-    private void Die()
+
+    void SwitchStateToDeath()
     {
-        Debug.Log("Monster has died.");
-
-        // 1. Đánh dấu là đã chết
+        if (isDead) return;
         isDead = true;
-        isTakingDamage = false; // Tắt trạng thái bị thương
+        isTakingDamage = false; isChasing = false; isReturning = false; isSearching = false; isAttacking = false;
 
-        // 2. Kích hoạt animation chết (bạn cần tạo trigger "Death" trong Animator)
-        animator.SetTrigger("Death");
-
-        // 3. Dừng mọi AI
+        animator.SetTrigger(hashDeath);
         StopAllCoroutines();
+        currentAICoroutine = null;
 
-        // 4. Tắt Collider để Player có thể đi xuyên qua
-        GetComponent<Collider2D>().enabled = false;
-
-        // Tùy chọn: Tắt Rigidbody (nếu có)
+        if (mainCollider != null) mainCollider.enabled = false;
         Rigidbody2D rb = GetComponent<Rigidbody2D>();
-        if (rb != null)
-        {
-            rb.simulated = false; // Tắt vật lý
-        }
+        if (rb != null) rb.simulated = false;
 
-        // 5. Hủy GameObject quái vật (và thanh máu) sau 2 giây
-        // (Cho animation chết có thời gian chạy)
+        if (healthBarAttachPoint != null && healthBarAttachPoint.childCount > 0)
+            Destroy(healthBarAttachPoint.GetChild(0).gameObject);
+
+        DropLoot();
         Destroy(gameObject, 2f);
     }
 
-}
+    void DropLoot()
+    {
+        if (coinPrefab != null && Random.value <= coinDropChance)
+        {
+            for (int i = 0; i < coinDropAmount; i++)
+            {
+                Vector3 dropPosition = transform.position + Vector3.up * 0.5f;
+                GameObject coin = Instantiate(coinPrefab, dropPosition, Quaternion.identity);
+                Rigidbody2D coinRb = coin.GetComponent<Rigidbody2D>();
+                if (coinRb != null)
+                {
+                    Vector2 dropForce = new Vector2(Random.Range(-1f, 1f), Random.Range(1f, 2f)).normalized * lootDropForce;
+                    coinRb.AddForce(dropForce, ForceMode2D.Impulse);
+                }
+            }
+        }
 
+        if (healthPotionPrefab != null && Random.value <= potionDropChance)
+        {
+            Vector3 dropPosition = transform.position + Vector3.up * 0.5f;
+            GameObject potion = Instantiate(healthPotionPrefab, dropPosition, Quaternion.identity);
+            Rigidbody2D potionRb = potion.GetComponent<Rigidbody2D>();
+            if (potionRb != null)
+            {
+                Vector2 dropForce = new Vector2(Random.Range(-1f, 1f), Random.Range(1f, 2f)).normalized * lootDropForce;
+                potionRb.AddForce(dropForce, ForceMode2D.Impulse);
+            }
+        }
+    }
+
+    #endregion
+
+    #region Utility Functions
+
+    // Hàm Flip chỉ lật hình và cập nhật isFacingRight
+    void Flip()
+    {
+        isFacingRight = !isFacingRight; // Cập nhật trạng thái bool
+        Vector3 localScale = transform.localScale;
+        localScale.x *= -1;
+        transform.localScale = localScale; // Lật hình ảnh thực tế
+
+        // Lật ngược thanh máu để nó không bị lật theo quái vật
+        if (healthBarAttachPoint != null)
+        {
+            Vector3 healthBarScale = healthBarAttachPoint.localScale;
+            healthBarScale.x *= -1; // Chỉ lật trục X
+            healthBarAttachPoint.localScale = healthBarScale;
+        }
+    }
+
+    void UpdateHealthBarVisuals()
+    {
+        if (healthBarScript != null)
+        {
+            healthBarScript.UpdateHealthBar(currentHealth, maxHealth);
+        }
+    }
+
+    #endregion
+
+    #region Gizmos (Debugging)
+
+    void OnDrawGizmosSelected()
+    {
+        Vector3 currentStartPosition = Application.isPlaying && startPosition != Vector3.zero ? startPosition : transform.position;
+
+        Gizmos.color = Color.yellow; Gizmos.DrawWireSphere(transform.position, detectionRange);
+        Gizmos.color = Color.red; Gizmos.DrawWireSphere(transform.position, attackRange);
+
+        if (Application.isPlaying && !isDead)
+        { Gizmos.color = Color.blue; Gizmos.DrawWireSphere(currentStartPosition, maxChaseDistance); }
+
+        Gizmos.color = Color.cyan;
+        Vector3 patrolEnd = currentStartPosition - new Vector3(patrolDistance, 0, 0);
+        Gizmos.DrawLine(currentStartPosition + Vector3.up * 0.1f, patrolEnd + Vector3.up * 0.1f);
+        Gizmos.DrawWireSphere(currentStartPosition, 0.2f); Gizmos.DrawWireSphere(patrolEnd, 0.2f);
+    }
+
+    #endregion
+}
