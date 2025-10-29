@@ -5,7 +5,7 @@ public class LevelExit : MonoBehaviour
 {
     [Header("Scene Settings")]
     [SerializeField]
-    private string nextSceneName = "BossRound"; // Tên scene để tải
+    private string nextSceneName = "Boss"; // Tên scene để tải
 
     [Header("Spawn Settings")]
     [SerializeField] private SpawnData spawnData; // Kéo file "PlayerSpawnData" vào đây
