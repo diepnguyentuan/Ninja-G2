@@ -13,6 +13,8 @@ public class CameraFollow : MonoBehaviour
     // để camera lùi ra xa hoặc lại gần.
     [SerializeField] private Vector3 offset = new Vector3(0f, 0f, -10f);
 
+    public Vector3 Offset => offset;
+
     // --- BIẾN CHO HIỆU ỨNG RUNG (Giữ nguyên) ---
     [Header("Camera Shake")]
     public float shakeDuration = 0.1f;
