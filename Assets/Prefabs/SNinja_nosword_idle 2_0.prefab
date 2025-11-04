@@ -18,7 +18,7 @@ GameObject:
   - component: {fileID: 5201440506817257142}
   m_Layer: 0
   m_Name: SNinja_nosword_idle 2_0
-  m_TagString: player
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -31,11 +31,11 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 364813923369822397}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -3.77, y: 1.39, z: 0}
-  m_LocalScale: {x: 1.2137, y: 1, z: 1}
+  m_LocalPosition: {x: -3.13, y: -0.42580009, z: 0}
+  m_LocalScale: {x: 0.6194802, y: 0.51713026, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 364813924581898461}
+  - {fileID: 6467718245033239403}
   - {fileID: 364813924472647794}
   m_Father: {fileID: 0}
   m_RootOrder: 0
@@ -128,8 +128,8 @@ Rigidbody2D:
   m_Mass: 1
   m_LinearDrag: 0
   m_AngularDrag: 0.05
-  m_GravityScale: 3
-  m_Material: {fileID: 0}
+  m_GravityScale: 6
+  m_Material: {fileID: 6200000, guid: 4a2c12e0377eb3a4a828b79f66a50d1c, type: 2}
   m_Interpolate: 0
   m_SleepingMode: 1
   m_CollisionDetection: 1
@@ -165,12 +165,13 @@ MonoBehaviour:
   maxSpeed: 5
   jumpHeight: 15
   attackCooldown: 0.35
-  attackPoint: {fileID: 0}
-  attackRange: 1.5
-  attackDamage: 10
+  attackPoint: {fileID: 6467718245033239403}
+  attackRange: 1
+  attackDamage: 1
   monsterLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
+  knockbackForce: 10
 --- !u!114 &364813923369822340
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -226,14 +227,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 364813924472647793}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1, y: 0, z: 0}
+  m_LocalPosition: {x: 0.51, y: -0.297, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 364813923369822394}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &364813924581898460
+--- !u!1 &6467718245033239402
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -241,24 +242,24 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 364813924581898461}
+  - component: {fileID: 6467718245033239403}
   m_Layer: 0
-  m_Name: HandAnchor
+  m_Name: AttackPoint
   m_TagString: Untagged
-  m_Icon: {fileID: 7148428337604731935, guid: 0000000000000000d000000000000000, type: 0}
+  m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &364813924581898461
+--- !u!4 &6467718245033239403
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 364813924581898460}
+  m_GameObject: {fileID: 6467718245033239402}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 2.6595812, y: 2.6595812, z: 2.6595812}
+  m_LocalPosition: {x: 0.323, y: 0.112, z: 0}
+  m_LocalScale: {x: 3.073412, y: 3.073412, z: 3.073412}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 364813923369822394}

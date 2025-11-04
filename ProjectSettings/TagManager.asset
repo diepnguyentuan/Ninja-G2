@@ -15,7 +15,7 @@ TagManager:
   - Water
   - UI
   - Monster
-  - 
+  - Boss
   - 
   - 
   - 
@@ -61,4 +61,7 @@ TagManager:
     locked: 0
   - name: Bullet
     uniqueID: 4231750091
+    locked: 0
+  - name: Boss
+    uniqueID: 3721579129
     locked: 0
