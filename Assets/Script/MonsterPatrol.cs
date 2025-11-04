@@ -54,9 +54,8 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
     private Vector3 startPosition;
     private Vector3 initialScale;
-    private bool isFacingRight = true;
+    private bool isFacingRight = true; // Sẽ được cập nhật chính xác trong Start()
     private Coroutine currentAICoroutine;
-    private Coroutine currentKnockbackRoutine; // Quản lý Coroutine Knockback
 
     private bool isChasing = false;
     private bool isAttacking = false;
@@ -84,6 +83,7 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         mainCollider = GetComponent<Collider2D>();
         startPosition = transform.position;
         initialScale = transform.localScale;
+        // Xác định chính xác hướng ban đầu dựa trên scale X
         isFacingRight = (initialScale.x < 0);
 
         currentHealth = maxHealth;
@@ -134,47 +134,35 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
     void Update()
     {
         if (isDead || isTakingDamage) return;
-
-        // Luôn cố gắng tìm Player nếu bị mất tham chiếu
-        if (playerTransform == null)
-        {
-            FindPlayer();
-            if (playerTransform == null) return;
-        }
+        if (playerTransform == null) return;
 
         float distanceToPlayerX = Mathf.Abs(transform.position.x - playerTransform.position.x);
         float distanceToPlayerY = Mathf.Abs(transform.position.y - playerTransform.position.y);
         float distanceFromStart = Vector3.Distance(transform.position, startPosition);
 
-        bool playerIsInDetection = ShouldStartChasing(distanceToPlayerX, distanceToPlayerY);
-
-        // --- SỬA LỖI AI CUỐI CÙNG ---
-
         if (isChasing)
         {
-            FacePlayer();
+            // *** SỬA LỖI 1: Luôn cập nhật hướng quay mặt KHI ĐANG CHASE ***
+            FacePlayer(); // Gọi ở đây đảm bảo nó quay đúng hướng trước khi di chuyển/tấn công
+            // *** ---------------------------------------------------- ***
 
-            // Nếu vượt quá giới hạn (maxChaseDistance) hoặc Player quá xa, DỪNG CHASE NGAY.
             if (ShouldStopChasing(distanceToPlayerX, distanceFromStart, distanceToPlayerY))
             {
-                SwitchState(AIState.Returning); // Quay về điểm gốc
-                return; // Thoát khỏi Update() để đảm bảo trạng thái Chase không được khởi động lại
+                SwitchState(AIState.Searching);
             }
-
-            HandleChasingAndAttacking(distanceToPlayerX, distanceToPlayerY);
+            else
+            {
+                HandleChasingAndAttacking(distanceToPlayerX, distanceToPlayerY);
+            }
         }
-        else // Trạng thái Patrolling / Searching / Returning
+        else // Not chasing
         {
-            // BẮT ĐẦU ĐUỔI: Nếu Player trong tầm và AI không đang bận Search/Return (chỉ Patrolling)
-            if (playerIsInDetection)
+            if (ShouldStartChasing(distanceToPlayerX, distanceToPlayerY))
             {
                 SwitchState(AIState.Chasing);
             }
         }
-        // -----------------------------
     }
-
-    bool isPatrolling() => currentAICoroutine != null && currentAICoroutine.ToString().Contains(nameof(PatrolRoutine));
 
     bool ShouldStopChasing(float distPX, float distStart, float distPY)
     {
@@ -183,7 +171,7 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
     bool ShouldStartChasing(float distPX, float distPY)
     {
-        return distPX <= detectionRange && distPY < 3f;
+        return distPX <= detectionRange && distPY < 3f && !isSearching;
     }
 
     #endregion
@@ -212,7 +200,10 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
                 currentAICoroutine = StartCoroutine(PatrolRoutine());
                 break;
             case AIState.Chasing:
-                FacePlayer();
+                // *** SỬA LỖI 1: Quay mặt ngay khi bắt đầu Chase ***
+                FacePlayer(); // Đảm bảo quay đúng hướng ngay khi chuyển sang Chase
+                              // *** ------------------------------------------ ***
+                              // Logic chính nằm trong Update
                 break;
             case AIState.Searching:
                 currentAICoroutine = StartCoroutine(SearchRoutine());
@@ -237,6 +228,7 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
     #region AI Behaviours (Coroutines & Handlers)
 
+    // PatrolRoutine giữ nguyên logic Flip cũ
     private IEnumerator PatrolRoutine()
     {
         Vector3 targetPosition;
@@ -251,8 +243,10 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
             animator.SetBool(hashIsWalking, true);
             while (Vector3.Distance(transform.position, targetPosition) > 0.01f)
             {
-                if (ShouldInterruptAI() || isChasing) yield break;
-                EnsureFacingDirection(false);
+                if (ShouldInterruptAI()) yield break;
+                // *** QUAN TRỌNG: Đảm bảo quay đúng hướng KHI tuần tra trái ***
+                EnsureFacingDirection(false); // Luôn quay trái khi đi về targetPosition (bên trái)
+                // *** ---------------------------------------------------- ***
                 transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
                 yield return null;
             }
@@ -268,13 +262,16 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
             animator.SetBool(hashIsWalking, true);
             while (Vector3.Distance(transform.position, startPosition) > 0.01f)
             {
-                if (ShouldInterruptAI() || isChasing) yield break;
-                EnsureFacingDirection(true);
+                if (ShouldInterruptAI()) yield break;
+                // *** QUAN TRỌNG: Đảm bảo quay đúng hướng KHI tuần tra phải ***
+                EnsureFacingDirection(true); // Luôn quay phải khi đi về startPosition (bên phải)
+                                             // *** ---------------------------------------------------- ***
                 transform.position = Vector3.MoveTowards(transform.position, startPosition, moveSpeed * Time.deltaTime);
                 yield return null;
             }
             if (ShouldInterruptAI()) yield break;
             transform.position = startPosition;
+
         }
     }
 
@@ -303,20 +300,26 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         isReturning = true;
         animator.SetBool(hashIsWalking, true);
 
-        EnsureFacingDirection(startPosition.x > transform.position.x);
+        // *** SỬA LỖI 2: Quay mặt đúng hướng NGAY KHI BẮT ĐẦU quay về ***
+        EnsureFacingDirection(startPosition.x > transform.position.x); // Quay về hướng của startPosition
+        // *** ---------------------------------------------------- ***
 
         while (Vector3.Distance(transform.position, startPosition) > 0.1f)
         {
             if (ShouldInterruptAI()) yield break;
+            // *** QUAN TRỌNG: Đảm bảo quay đúng hướng TRONG KHI quay về ***
             EnsureFacingDirection(startPosition.x > transform.position.x);
+            // *** ---------------------------------------------------- ***
             transform.position = Vector3.MoveTowards(transform.position, startPosition, moveSpeed * Time.deltaTime);
             yield return null;
         }
 
+        // Đã về đến nơi và không bị ngắt
         if (!isDead && !isTakingDamage && !isChasing)
         {
             transform.position = startPosition;
             animator.SetBool(hashIsWalking, false);
+            // Reset chính xác về trạng thái ban đầu
             transform.localScale = initialScale;
             isFacingRight = (initialScale.x < 0);
             isReturning = false;
@@ -324,37 +327,47 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         }
     }
 
+    // Xử lý logic khi đang Chase
     void HandleChasingAndAttacking(float distanceX, float distanceY)
     {
-        if (isAttacking) return;
+        // FacePlayer() đã được gọi trong Update()
 
+        if (isAttacking) return; // Đang animation attack thì dừng
+
+        // Ưu tiên tấn công
         if (distanceX <= attackRange && distanceY < 1.0f)
         {
             StartAttack();
         }
-        else
+        else // Nếu không thì di chuyển
         {
             MoveTowardsPlayer();
         }
     }
 
+    // Hàm gọi để đảm bảo quái vật quay mặt về Player
     void FacePlayer()
     {
         if (playerTransform == null || isAttacking || isTakingDamage || isDead) return;
         EnsureFacingDirection(playerTransform.position.x > transform.position.x);
     }
 
+    // *** HÀM MỚI: Đảm bảo quái vật quay đúng hướng chỉ định ***
+    // faceRight = true: quay phải
+    // faceRight = false: quay trái
     void EnsureFacingDirection(bool shouldFaceRight)
     {
-        if (shouldFaceRight && !isFacingRight)
+        if (shouldFaceRight && !isFacingRight) // Cần quay phải, đang quay trái -> Lật
         {
             Flip();
         }
-        else if (!shouldFaceRight && isFacingRight)
+        else if (!shouldFaceRight && isFacingRight) // Cần quay trái, đang quay phải -> Lật
         {
             Flip();
         }
+        // Nếu đã đúng hướng thì không làm gì
     }
+    // *** ------------------------------------------------ ***
 
     bool ShouldInterruptAI()
     {
@@ -363,7 +376,7 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
     #endregion
 
-    #region Combat Logic
+    #region Combat Logic (Giữ Nguyên)
 
     void StartAttack()
     {
@@ -390,47 +403,26 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
     public void TakeDamage(int amount, Vector2 playerPosition)
     {
-        if (isDead) return;
+        if (isDead || isTakingDamage) return;
 
         currentHealth -= amount;
         UpdateHealthBarVisuals();
 
-        // 1. Kiểm tra MÁU ĐÃ HẾT
         if (currentHealth <= 0)
         {
-            SwitchStateToDeath(); // Ưu tiên gọi trạng thái chết
-            return;
+            SwitchStateToDeath();
         }
-
-        // 2. MÁU CÒN: Kích hoạt Stun/Knockback
-
-        // KÍCH HOẠT ANIMATION SÁT THƯƠNG NGAY LẬP TỨC (Không còn bị delay)
-        animator.SetTrigger(hashTakeDamage);
-
-        StopCurrentAICoroutine();
-
-        // Dừng Coroutine Knockback cũ trước khi chạy cái mới (Chống kẹt)
-        if (currentKnockbackRoutine != null)
+        else
         {
-            StopCoroutine(currentKnockbackRoutine);
-            isTakingDamage = false;
+            StopCurrentAICoroutine();
+            StartCoroutine(KnockbackRoutine(playerPosition));
         }
-
-
-        currentKnockbackRoutine = StartCoroutine(KnockbackRoutine(playerPosition));
     }
 
     private IEnumerator KnockbackRoutine(Vector2 playerPosition)
     {
-        if (currentHealth <= 0)
-        {
-            SwitchStateToDeath();
-            yield break;
-        }
-
-        // 1. KÍCH HOẠT ANIMATION VÀ KHÓA TRẠNG THÁI (NGAY LÚC NÀY)
-        animator.SetTrigger(hashTakeDamage);
         isTakingDamage = true;
+        animator.SetTrigger(hashTakeDamage);
 
         Vector2 knockbackDirection = ((Vector2)transform.position - playerPosition).normalized;
         float timer = 0;
@@ -449,7 +441,6 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         if (isDead) yield break;
 
         isTakingDamage = false;
-        currentKnockbackRoutine = null;
         DecideNextStateAfterDamage();
     }
 
@@ -461,7 +452,6 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         float distanceToPlayerY = Mathf.Abs(transform.position.y - playerTransform.position.y);
         float distanceFromStart = Vector3.Distance(transform.position, startPosition);
 
-        // Quay lại Chase nếu Player còn gần và chưa vượt quá maxChaseDistance
         if (distanceToPlayerX <= detectionRange && distanceToPlayerY < 3f && distanceFromStart <= maxChaseDistance)
         {
             SwitchState(AIState.Chasing);
@@ -482,12 +472,6 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         animator.SetTrigger(hashDeath);
         StopAllCoroutines();
         currentAICoroutine = null;
-
-        // LOGIC NHIỆM VỤ: Gọi Singleton QuestManager để đăng ký sói bị tiêu diệt
-        if (QuestManager.Instance != null && QuestManager.Instance.isQuestActive)
-        {
-            QuestManager.Instance.RegisterKill();
-        }
 
         if (mainCollider != null) mainCollider.enabled = false;
         Rigidbody2D rb = GetComponent<Rigidbody2D>();
@@ -534,17 +518,19 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
     #region Utility Functions
 
+    // Hàm Flip chỉ lật hình và cập nhật isFacingRight
     void Flip()
     {
-        isFacingRight = !isFacingRight;
+        isFacingRight = !isFacingRight; // Cập nhật trạng thái bool
         Vector3 localScale = transform.localScale;
         localScale.x *= -1;
-        transform.localScale = localScale;
+        transform.localScale = localScale; // Lật hình ảnh thực tế
 
+        // Lật ngược thanh máu để nó không bị lật theo quái vật
         if (healthBarAttachPoint != null)
         {
             Vector3 healthBarScale = healthBarAttachPoint.localScale;
-            healthBarScale.x *= -1;
+            healthBarScale.x *= -1; // Chỉ lật trục X
             healthBarAttachPoint.localScale = healthBarScale;
         }
     }
@@ -560,6 +546,7 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
     #endregion
 
     #region Gizmos (Debugging)
+
     void OnDrawGizmosSelected()
     {
         Vector3 currentStartPosition = Application.isPlaying && startPosition != Vector3.zero ? startPosition : transform.position;
