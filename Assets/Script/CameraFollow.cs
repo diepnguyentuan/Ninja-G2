@@ -13,8 +13,6 @@ public class CameraFollow : MonoBehaviour
     // để camera lùi ra xa hoặc lại gần.
     [SerializeField] private Vector3 offset = new Vector3(0f, 0f, -10f);
 
-    public Vector3 Offset => offset;
-
     // --- BIẾN CHO HIỆU ỨNG RUNG (Giữ nguyên) ---
     [Header("Camera Shake")]
     public float shakeDuration = 0.1f;
@@ -92,7 +90,6 @@ public class CameraFollow : MonoBehaviour
             StopCoroutine(currentShakeCoroutine);
             transform.localPosition = originalPosition;
         }
-        originalPosition = transform.position;
         currentShakeCoroutine = StartCoroutine(ShakeRoutine());
     }
 
@@ -100,28 +97,18 @@ public class CameraFollow : MonoBehaviour
     {
         float elapsed = 0.0f;
 
-        // Vì originalPosition đã là World Position, chúng ta dùng nó trực tiếp
-        Vector3 currentOriginalPosition = originalPosition;
-
         while (elapsed < shakeDuration)
         {
             float xOffset = Random.Range(-0.5f, 0.5f) * shakeMagnitude;
             float yOffset = Random.Range(-0.5f, 0.5f) * shakeMagnitude;
 
-            // Áp dụng độ lệch vào vị trí gốc ĐÃ LƯU
-            // Chúng ta set transform.position (World) chứ không phải localPosition
-            transform.position = new Vector3(
-                currentOriginalPosition.x + xOffset,
-                currentOriginalPosition.y + yOffset,
-                currentOriginalPosition.z // Giữ nguyên Z
-            );
+            transform.localPosition = new Vector3(originalPosition.x + xOffset, originalPosition.y + yOffset, originalPosition.z);
 
             elapsed += Time.deltaTime;
             yield return null;
         }
 
-        // Đảm bảo trả camera về vị trí gốc mà nó bắt đầu rung
-        transform.position = currentOriginalPosition;
+        transform.localPosition = originalPosition;
         currentShakeCoroutine = null;
     }
 }
