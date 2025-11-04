@@ -44,7 +44,10 @@ public class NPCDialogueTrigger : MonoBehaviour
                 else Debug.LogWarning("Chưa gán ShopManager cho NPC!");
                 break;
             case 1:
-                if (questUIManager != null) questUIManager.ShowQuestPrompt("Bạn có muốn nhận nhiệm vụ tiêu diệt đàn sói không?");
+                if (questUIManager != null)
+                {
+                    questUIManager.ShowQuestPrompt("Bạn có muốn nhận nhiệm vụ tiêu diệt đàn sói quanh làng không?");
+                }
                 else Debug.LogWarning("Chưa gán QuestUIManager cho NPC!");
                 break;
             case 2:

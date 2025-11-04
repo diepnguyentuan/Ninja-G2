@@ -169,8 +169,6 @@ public class PlayerMove : MonoBehaviour
         if (collision.collider.CompareTag("ground"))
             grounded = false;
     }
-
-    // Xử lý khi bị quái vật tấn công
     private void OnTriggerEnter2D(Collider2D other)
     {
         // Chỉ xử lý nếu va chạm với hitbox địch và chưa bị văng
@@ -184,28 +182,41 @@ public class PlayerMove : MonoBehaviour
                 PlayerStats.instance.TakeDamage(10); // Ví dụ sát thương quái = 10
             }
 
-            // Tính toán hướng văng
+            // Tính toán và áp dụng lực văng
             Vector2 knockbackDirection = ((Vector2)transform.position - (Vector2)other.transform.position).normalized;
-            // Reset vận tốc trước khi thêm lực để đảm bảo nhất quán
             myBody.velocity = Vector2.zero;
             myBody.AddForce(knockbackDirection * knockbackForce, ForceMode2D.Impulse);
 
             // Kích hoạt trạng thái bị văng/choáng
             isKnockedBack = true;
+
+            CameraFollow camFollow = Camera.main?.GetComponent<CameraFollow>();
+
+            // 1. TẮT FOLLOW VÀ KÍCH HOẠT RUNG
+            if (camFollow != null)
+            {
+                camFollow.enabled = false;
+                camFollow.TriggerShake();
+            }
+
             // Dừng Coroutine cũ nếu có và bắt đầu Coroutine mới bằng tên chuỗi
             StopCoroutine("KnockbackCooldown");
             StartCoroutine("KnockbackCooldown");
-
-            // --- KÍCH HOẠT RUNG CAMERA ---
-            Camera.main?.GetComponent<CameraFollow>()?.TriggerShake();
-            // --- --------------------- ---
         }
     }
 
     // Coroutine để kết thúc trạng thái bị văng/choáng sau một khoảng thời gian
     private IEnumerator KnockbackCooldown()
     {
-        yield return new WaitForSeconds(0.2f); // Thời gian bị khóa input sau khi văng
+        yield return new WaitForSeconds(0.2f);
+
+        CameraFollow camFollow = Camera.main?.GetComponent<CameraFollow>();
+        if (camFollow != null)
+        {
+            camFollow.enabled = true;
+        }
+        // -----------------------------
+
         isKnockedBack = false; // Cho phép điều khiển trở lại
     }
 

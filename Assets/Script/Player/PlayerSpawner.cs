@@ -3,68 +3,101 @@
 public class PlayerSpawner : MonoBehaviour
 {
     [Header("Data")]
-    [SerializeField] private SpawnData spawnData; // Kéo file "PlayerSpawnData" vào đây
+    [Tooltip("Kéo file PlayerSpawnData (ScriptableObject) vào đây.")]
+    [SerializeField] private SpawnData spawnData;
 
     [Header("Default Spawn")]
-    [SerializeField] private string defaultSpawnName = "Default"; // Tên điểm spawn mặc định
+    [Tooltip("Tên điểm spawn sẽ được dùng nếu không có dữ liệu chuyển scene (ví dụ: chạy thẳng scene này).")]
+    [SerializeField] private string defaultSpawnName = "Default";
 
-    void Start()
+    // Sử dụng Awake() thay vì Start() để đảm bảo script này chạy SỚM nhất có thể 
+    // sau khi scene được tải, trước khi các script khác cố gắng sử dụng Player.
+    void Awake()
     {
-        // Tìm Player trong scene bằng Tag (Script PlayerMove của bạn đã dùng Tag "Player" rồi)
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null)
+        // Khởi tạo biến Transform của Player
+        Transform playerTransform = null;
+
+        // CÁCH 1: Ưu tiên tìm Player thông qua Singleton Pattern (Đáng tin cậy nhất cho DontDestroyOnLoad)
+        if (PlayerStats.instance != null)
         {
-            Debug.LogError("PlayerSpawner: Không tìm thấy Player trong scene!");
+            playerTransform = PlayerStats.instance.transform;
+        }
+
+        // CÁCH 2: Nếu Singleton chưa được thiết lập, tìm bằng Tag (ít đáng tin cậy hơn)
+        if (playerTransform == null)
+        {
+            GameObject playerByTag = GameObject.FindGameObjectWithTag("Player");
+            if (playerByTag != null)
+            {
+                playerTransform = playerByTag.transform;
+            }
+        }
+
+        // Kiểm tra cuối cùng: Nếu vẫn không tìm thấy Player, thông báo lỗi và dừng
+        if (playerTransform == null)
+        {
+            Debug.LogError("PlayerSpawner: KHÔNG THỂ TÌM THẤY Player (kiểm tra Player có Tag 'Player' và có script PlayerStats chưa).");
             return;
         }
 
-        // 1. Đọc "bức thư"
-        string targetSpawnName = spawnData != null ? spawnData.nextSpawnPointName : defaultSpawnName;
+        // --- BẮT ĐẦU LOGIC CHUYỂN CẢNH ---
 
-        // Nếu "bức thư" trống (ví dụ: bạn chạy thẳng từ scene Village), dùng tên mặc định
-        if (string.IsNullOrEmpty(targetSpawnName))
-        {
-            targetSpawnName = defaultSpawnName;
-        }
+        // 1. Đọc "bức thư" (Spawn Name đã được lưu từ scene trước)
+        string targetSpawnName = spawnData != null && !string.IsNullOrEmpty(spawnData.nextSpawnPointName)
+                                 ? spawnData.nextSpawnPointName
+                                 : defaultSpawnName;
 
         // 2. Tìm tất cả "hòm thư" (PlayerSpawnPoint) trong scene
         PlayerSpawnPoint[] allSpawnPoints = FindObjectsOfType<PlayerSpawnPoint>();
         Transform targetPoint = null;
 
-        // 3. Tìm "hòm thư" có tên khớp
+        // 3. Tìm "hòm thư" có tên khớp với tên gửi đến
         foreach (PlayerSpawnPoint point in allSpawnPoints)
         {
             if (point.spawnName == targetSpawnName)
             {
                 targetPoint = point.transform;
+                Debug.Log($"[SUCCESS] PlayerSpawner: Đã tìm thấy điểm spawn: '{targetSpawnName}'");
                 break; // Tìm thấy rồi!
             }
         }
 
-        // 4. Nếu không tìm thấy (gõ sai tên, v.v.), hãy cảnh báo
+        // 4. Nếu không tìm thấy điểm đích (có thể do lỗi gõ tên):
         if (targetPoint == null)
         {
-            Debug.LogWarning($"Không tìm thấy spawn point tên: '{targetSpawnName}'.");
-            // Thử tìm điểm mặc định
+            Debug.LogWarning($"[WARNING] PlayerSpawner: Không tìm thấy điểm spawn đích tên: '{targetSpawnName}'. Đang thử tìm điểm '{defaultSpawnName}'.");
+
+            // Thử tìm điểm mặc định (để Player không bị treo)
             foreach (PlayerSpawnPoint point in allSpawnPoints)
             {
                 if (point.spawnName == defaultSpawnName)
                 {
                     targetPoint = point.transform;
+                    Debug.Log($"[SUCCESS] PlayerSpawner: Đã chuyển Player đến điểm mặc định: '{defaultSpawnName}'");
                     break;
                 }
             }
         }
 
-        // 5. Dịch chuyển Player
+        // 5. Dịch chuyển Player đến vị trí tìm được
         if (targetPoint != null)
         {
-            player.transform.position = targetPoint.position;
-            Debug.Log($"Đã dịch chuyển Player đến: {targetSpawnName}");
+            // Thiết lập vị trí mới cho Player
+            playerTransform.position = targetPoint.position;
+
+            // Đảm bảo Player được kích hoạt (nếu bạn có tắt nó trong quá trình load)
+            playerTransform.gameObject.SetActive(true);
+
+            // 6. Xóa "bức thư" (Xóa tên đã lưu trong SpawnData)
+            // Việc này rất quan trọng để khi bạn quay lại Scene này lần nữa, nó sẽ dùng Default.
+            if (spawnData != null)
+            {
+                spawnData.nextSpawnPointName = null;
+            }
         }
         else
         {
-            Debug.LogError("Không tìm thấy BẤT KỲ spawn point nào! Player sẽ ở vị trí mặc định.");
+            Debug.LogError($"[FATAL] PlayerSpawner: Không tìm thấy BẤT KỲ spawn point nào. Player sẽ ở vị trí mặc định cũ.");
         }
     }
 }

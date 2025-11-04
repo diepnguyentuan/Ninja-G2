@@ -92,6 +92,7 @@ public class CameraFollow : MonoBehaviour
             StopCoroutine(currentShakeCoroutine);
             transform.localPosition = originalPosition;
         }
+        originalPosition = transform.position;
         currentShakeCoroutine = StartCoroutine(ShakeRoutine());
     }
 
@@ -99,18 +100,28 @@ public class CameraFollow : MonoBehaviour
     {
         float elapsed = 0.0f;
 
+        // Vì originalPosition đã là World Position, chúng ta dùng nó trực tiếp
+        Vector3 currentOriginalPosition = originalPosition;
+
         while (elapsed < shakeDuration)
         {
             float xOffset = Random.Range(-0.5f, 0.5f) * shakeMagnitude;
             float yOffset = Random.Range(-0.5f, 0.5f) * shakeMagnitude;
 
-            transform.localPosition = new Vector3(originalPosition.x + xOffset, originalPosition.y + yOffset, originalPosition.z);
+            // Áp dụng độ lệch vào vị trí gốc ĐÃ LƯU
+            // Chúng ta set transform.position (World) chứ không phải localPosition
+            transform.position = new Vector3(
+                currentOriginalPosition.x + xOffset,
+                currentOriginalPosition.y + yOffset,
+                currentOriginalPosition.z // Giữ nguyên Z
+            );
 
             elapsed += Time.deltaTime;
             yield return null;
         }
 
-        transform.localPosition = originalPosition;
+        // Đảm bảo trả camera về vị trí gốc mà nó bắt đầu rung
+        transform.position = currentOriginalPosition;
         currentShakeCoroutine = null;
     }
 }
