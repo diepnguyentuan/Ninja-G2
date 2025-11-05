@@ -14,7 +14,6 @@ GameObject:
   - component: {fileID: 364813923369822399}
   - component: {fileID: 364813923369822398}
   - component: {fileID: 364813923369822395}
-  - component: {fileID: 364813923369822340}
   - component: {fileID: 5201440506817257142}
   m_Layer: 0
   m_Name: SNinja_nosword_idle 2_0
@@ -171,23 +170,13 @@ MonoBehaviour:
   monsterLayer:
     serializedVersion: 2
     m_Bits: 0
---- !u!114 &364813923369822340
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 364813923369822397}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 359bece5fc973c9418514a79a2558de8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  firePoint: {fileID: 364813924472647794}
-  fireballPrefab: {fileID: 6511908452581040433, guid: 131f2fd25710d3242a5b773d7ab32d71, type: 3}
+  fireballPrefab: {fileID: 0}
+  firePoint: {fileID: 0}
+  fireballDamage: 100
   projectileSpeed: 12
   projectileRange: 6
   fireCooldown: 0.4
+  knockbackForce: 15
 --- !u!114 &5201440506817257142
 MonoBehaviour:
   m_ObjectHideFlags: 0
