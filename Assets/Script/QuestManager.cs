@@ -1,78 +1,66 @@
 ﻿using UnityEngine;
 using System;
+using TMPro;
+using UnityEngine.UI;
 
 public class QuestManager : MonoBehaviour
 {
-    // Singleton Access Point (Điểm truy cập duy nhất)
     public static QuestManager Instance;
+    // Singleton Access Point (Điểm truy cập duy nhất)
+    [Header("Quest UI")]
+    public GameObject questPanel;
+    public TMP_Text questTitle;
+    public TMP_Text questDescription;
+    public TMP_Text questProgressText;
 
     [Header("Quest Data")]
-    public const int TARGET_COUNT = 3; // Mục tiêu: Tiêu diệt 3 con sói
-    public int currentKills = 0;
+    public string questTitleText = "Tiêu diệt đàn sói";
+    public string questDescriptionText = "Giết 5 con sói đang quấy phá làng.";
+    public int targetCount = 5;
+    public int currentCount = 0;
     public bool isQuestActive = false;
+    public bool questCompleted = false;
 
-    // --- EVENTS (Các tín hiệu để giao tiếp với UI) ---
-    // Event này thông báo cho UI biết số lượng đã thay đổi
-    public static event Action<int, int> OnQuestProgressed;
-    // Event này thông báo cho UI/GameManager biết nhiệm vụ đã hoàn thành
-    public static event Action OnQuestCompleted;
-
-    void Awake()
+    public void Awake()
     {
-        // Thiết lập Singleton và DontDestroyOnLoad
         if (Instance == null)
-        {
             Instance = this;
-            // GIỮ QUEST MANAGER SỐNG SÓT QUA CÁC SCENE
-            DontDestroyOnLoad(gameObject);
-        }
         else
-        {
-            // Hủy bản sao (duplicate)
             Destroy(gameObject);
-        }
     }
 
-    // --- CÁC HÀM XỬ LÝ LOGIC CHÍNH ---
-
-    // 1. GỌI KHI NGƯỜI CHƠI CHẤP NHẬN NHIỆM VỤ (từ QuestUIManager)
-    public void StartWolfQuest()
+    public void StartQuest()
     {
-        if (isQuestActive) return;
-
         isQuestActive = true;
-        currentKills = 0;
+        questCompleted = false;
+        currentCount = 0;
 
-        Debug.Log("Nhiệm vụ SÓI đã được kích hoạt.");
-
-        // Thông báo cho UI hiển thị tiến trình lần đầu
-        OnQuestProgressed?.Invoke(currentKills, TARGET_COUNT);
+        questPanel.SetActive(true);
+        questTitle.text = questTitleText;
+        questDescription.text = questDescriptionText;
+        UpdateProgressUI();
+        Debug.Log("[Quest] Bắt đầu nhiệm vụ tiêu diệt đàn sói!");
     }
-
-    // 2. GỌI TỪ SCRIPT WOLF HEALTH (khi một con sói bị tiêu diệt)
     public void RegisterKill()
     {
-        if (!isQuestActive) return;
-
-        currentKills++;
-
-        Debug.Log($"Đã tiêu diệt: {currentKills}/{TARGET_COUNT}");
-
-        // Thông báo cho UI cập nhật số lượng
-        OnQuestProgressed?.Invoke(currentKills, TARGET_COUNT);
-
-        if (currentKills >= TARGET_COUNT)
+        if (!isQuestActive || questCompleted) return;
+        currentCount++;
+        UpdateProgressUI();
+        if (currentCount >= targetCount)
         {
-            CompleteQuest();
+            questCompleted = true;
+            questProgressText.text = $"Hoàn thành nhiệm vụ! ({currentCount}/{targetCount})";
+            Debug.Log("[Quest] Nhiệm vụ hoàn thành");
         }
     }
 
-    private void CompleteQuest()
+    private void UpdateProgressUI()
     {
-        isQuestActive = false;
-        Debug.Log("NHIỆM VỤ THÀNH CÔNG! Sói đã bị tiêu diệt đủ.");
-
-        // Thông báo cho UI hiển thị thông báo hoàn thành
-        OnQuestCompleted?.Invoke();
+        questProgressText.text = $"Tiến trình: {currentCount}/{targetCount}";
     }
+
+    //public bool IsQuestActive()
+    //{
+    //    return questActive && !questCompleted;
+    //}
 }

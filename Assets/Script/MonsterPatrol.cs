@@ -486,7 +486,7 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         // LOGIC NHIỆM VỤ: Gọi Singleton QuestManager để đăng ký sói bị tiêu diệt
         if (QuestManager.Instance != null && QuestManager.Instance.isQuestActive)
         {
-            // QuestManager.Instance.RegisterKill(); // Giả định hàm này tồn tại
+             QuestManager.Instance.RegisterKill(); // Giả định hàm này tồn tại
         }
 
         if (mainCollider != null) mainCollider.enabled = false;
