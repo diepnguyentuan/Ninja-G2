@@ -15,41 +15,57 @@ public class PlayerUIHealthBar : MonoBehaviour
     void OnEnable()
     {
         // Chỉ đăng ký
-        PlayerStats.OnHealthChanged += UpdateHealthBar;
+        if (PlayerStats.instance != null)
+        {
+            PlayerStats.OnHealthChanged += UpdateHealthBar;
+        }
     }
 
     // Hủy đăng ký "lắng nghe" khi script bị tắt (rất quan trọng)
     void OnDisable()
     {
         // Chỉ hủy đăng ký
-        PlayerStats.OnHealthChanged -= UpdateHealthBar;
-    }
+        if (PlayerStats.instance != null)
+        {
+            PlayerStats.OnHealthChanged -= UpdateHealthBar;
+        }
 
-    // Hàm Start() chạy sau TẤT CẢ các hàm Awake()
-    // Giúp lấy giá trị máu ban đầu một cách an toàn
+        // Hàm Start() chạy sau TẤT CẢ các hàm Awake()
+        // Giúp lấy giá trị máu ban đầu một cách an toàn
+    }
     void Start()
     {
         if (PlayerStats.instance != null)
         {
             // Lấy giá trị máu ban đầu ngay khi bắt đầu
-            UpdateHealthBar(PlayerStats.instance.currentHealth, PlayerStats.instance.maxHealth);
+            if (PlayerStats.instance != null)
+            {
+                UpdateHealthBar(PlayerStats.instance.currentHealth, PlayerStats.instance.maxHealth);
+            }
+            else
+            {
+                Debug.LogWarning("⚠ PlayerStats.instance chưa tồn tại trong scene!");
+            }
         }
     }
 
     // Hàm này sẽ được PlayerStats tự động gọi nhờ "event"
     private void UpdateHealthBar(int currentHealth, int maxHealth)
     {
-        if (fillImage == null) return;
+        if (fillImage == null)
+        {
+            Debug.LogError("⚠ Chưa gán Image cho PlayerUIHealthBar!");
+            return;
+        }
 
+        // Nếu maxHealth <= 0, tránh chia cho 0
         if (maxHealth <= 0)
         {
-            fillImage.fillAmount = 0;
+            fillImage.fillAmount = 0f;
+            return;
         }
-        else
-        {
-            // Tính toán tỉ lệ và cập nhật thanh "Fill"
-            // Phải ép kiểu (float) để phép chia ra số thập phân
-            fillImage.fillAmount = (float)currentHealth / maxHealth;
-        }
+
+        // Tính tỉ lệ và gán vào thanh Fill
+        fillImage.fillAmount = Mathf.Clamp01((float)currentHealth / maxHealth);
     }
 }
