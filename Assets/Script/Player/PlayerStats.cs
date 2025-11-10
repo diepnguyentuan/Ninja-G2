@@ -51,7 +51,7 @@ public class PlayerStats : MonoBehaviour
     {
         currentExp += Mathf.Max(0, amount);
         while (currentExp >= expToNextLevel) LevelUp(); // hỗ trợ lên nhiều cấp một lúc
-        //UIExperienceManager.Instance?.UpdateExpUI(currentExp, expToNextLevel);
+        UIExperienceManager.Instance?.UpdateExpUI(currentExp, expToNextLevel);
     }
 
     private void LevelUp()
