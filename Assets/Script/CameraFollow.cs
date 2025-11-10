@@ -119,4 +119,8 @@ public class CameraFollow : MonoBehaviour
         transform.position = currentOriginalPosition;
         currentShakeCoroutine = null;
     }
+    public Vector3 Offset
+    {
+        get { return offset; }
+    }
 }

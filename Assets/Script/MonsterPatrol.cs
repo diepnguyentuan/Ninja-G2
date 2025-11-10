@@ -43,6 +43,7 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
     [Range(0f, 1f)]
     public float potionDropChance = 0.1f;
     public float lootDropForce = 2.5f;
+    public int experienceDrop = 25; // Sói sẽ cho 25 XP
 
     #endregion
 
@@ -203,7 +204,10 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         isSearching = (newState == AIState.Searching);
         isReturning = (newState == AIState.Returning);
 
-        if (!isChasing) isAttacking = false;
+        if (!isChasing && !isAttacking) // Nếu chuyển trạng thái không phải Chasing, tắt isAttacking
+        {
+            isAttacking = false;
+        }
 
         animator.SetBool(hashIsChasing, isChasing);
         animator.SetBool(hashIsWalking, newState == AIState.Returning || newState == AIState.Patrolling);
@@ -443,13 +447,24 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
             yield return null;
         }
 
-        yield return new WaitForSeconds(stunDurationAfterKnockback);
+        //yield return new WaitForSeconds(stunDurationAfterKnockback);
 
-        if (isDead) yield break;
+        //if (isDead) yield break;
 
         // 2. KẾT THÚC STUN
-        isTakingDamage = false;
+        //isTakingDamage = false;
         currentKnockbackRoutine = null;
+        //DecideNextStateAfterDamage();
+    }
+
+    public void DamageComplete()
+    {
+        if (isDead) return;
+
+        // Đây là nơi chính thức kết thúc trạng thái Damage
+        isTakingDamage = false;
+
+        // Khi Damage kết thúc, ta quyết định trạng thái AI tiếp theo
         DecideNextStateAfterDamage();
     }
 
@@ -483,10 +498,16 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         StopAllCoroutines();
         currentAICoroutine = null;
 
-        // LOGIC NHIỆM VỤ: Gọi Singleton QuestManager để đăng ký sói bị tiêu diệt
-        if (QuestManager.Instance != null && QuestManager.Instance.isQuestActive)
+        if (PlayerStats.instance != null)
         {
-             QuestManager.Instance.RegisterKill(); // Giả định hàm này tồn tại
+            PlayerStats.instance.GainExp(experienceDrop);
+        }
+
+        // LOGIC NHIỆM VỤ: Gọi Singleton QuestManager để đăng ký sói bị tiêu diệt
+        if (QuestManager.Instance != null)
+        {
+            // Gọi hàm RegisterKill() để tăng biến currentKills và kiểm tra hoàn thành
+            QuestManager.Instance.RegisterKill();
         }
 
         if (mainCollider != null) mainCollider.enabled = false;
