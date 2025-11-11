@@ -2,5 +2,5 @@
 
 public interface IDamageable
 {
-    void TakeDamage(int amount, Vector2 hitPoint);
+        void TakeDamage(int damage, Vector2 attackPosition);
 }

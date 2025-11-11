@@ -13,15 +13,16 @@ public class DragonAI : MonoBehaviour
     private AIState currentState = AIState.Idle_OnPerch;
 
     [Header("Tham chiếu (Kéo thả)")]
-    // --- SỬA LỖI: Biến này sẽ được gán tự động ---
-    private Transform playerTransform; // Không cần kéo vào Inspector nữa
+    private Transform playerTransform;
+    public Transform dragonModel;
+    public Animator animator;
 
-    public Transform dragonModel;       // Kéo GameObject "DragonRed" (con) vào đây
-    public Animator animator;           // Kéo "DragonRed" (con) vào đây
+    [Tooltip("Kéo Rigidbody 2D của DragonRoot vào đây")]
+    public Rigidbody2D rb; // <== MỚI
 
     [Header("Cài đặt Chiến đấu (GĐ 1)")]
     public float moveSpeed = 2.5f;
-    public float groundLevelY = -8f; // (Giữ nguyên giá trị -8 bạn đã đặt)
+    // ĐÃ LOẠI BỎ groundLevelY
     public float meleeRange = 4f;
     public float rangedRange = 15f;
     public float stopDistance = 3.5f;
@@ -29,6 +30,8 @@ public class DragonAI : MonoBehaviour
     [Header("Thời gian Cooldown")]
     public float attackCooldown = 3.0f;
     public float jumpCooldown = 10.0f;
+    public float jumpForceX = 15f; // Lực nhảy ngang
+    public float jumpForceY = 10f; // Lực nhảy dọc
 
     [Header("Cài đặt Intro Jump")]
     public float introJumpDuration = 1.5f;
@@ -50,45 +53,39 @@ public class DragonAI : MonoBehaviour
     void Start()
     {
         initialPerchPosition = transform.position;
-        this.enabled = false; // Tắt AI, chờ BossIntroTrigger
+        this.enabled = false;
 
-        // --- SỬA LỖI: Không tìm Player trong Start() ---
+        if (rb == null) rb = GetComponent<Rigidbody2D>();
+        // Nếu Rồng có Rigidbody, đảm bảo nó là Kinematic khi chờ trên vách đá 
+        if (rb != null) rb.isKinematic = true;
 
-        // Xác định hướng quay mặt ban đầu của sprite
         if (dragonModel != null)
         {
             isFacingRight_Sprite = (dragonModel.localScale.x < 0);
         }
     }
 
-    // Hàm này được gọi bởi BossIntroTrigger để bắt đầu
     public void StartCombat()
     {
-        this.enabled = true; // Bật AI lên
-
-        // --- SỬA LỖI: TÌM PLAYER TẠI ĐÂY ---
-        // Dùng Singleton để tìm Player "Xịn" (bất tử)
+        this.enabled = true;
         if (PlayerStats.instance != null)
         {
             playerTransform = PlayerStats.instance.transform;
         }
         else
         {
-            // Nếu không tìm thấy Player (ví dụ: test scene Boss), script sẽ dừng
             Debug.LogError("DragonAI: KHÔNG TÌM THẤY PlayerStats.instance!");
-            currentState = AIState.Idle_OnPerch; // Quay về trạng thái chờ
+            currentState = AIState.Idle_OnPerch;
             return;
         }
-        // ------------------------------------
 
-        // Bắt đầu kịch bản nhảy xuống
         if (currentState == AIState.Idle_OnPerch)
         {
             StartCoroutine(IntroJumpRoutine());
         }
     }
 
-    // --- COROUTINE NHẢY XUỐNG ĐẤT ---
+    // --- COROUTINE NHẢY XUỐNG ĐẤT (Cinematic) ---
     private IEnumerator IntroJumpRoutine()
     {
         currentState = AIState.Intro_Jumping;
@@ -97,18 +94,10 @@ public class DragonAI : MonoBehaviour
 
         float elapsedTime = 0f;
         Vector3 startPos = initialPerchPosition;
+        if (playerTransform == null) yield break;
 
-        // --- SỬA LỖI: Kiểm tra Player một lần nữa cho chắc ---
-        if (playerTransform == null)
-        {
-            Debug.LogError("DragonAI: playerTransform bị null ngay trước khi nhảy!");
-            currentState = AIState.Idle_OnPerch; // Quay về chờ
-            yield break; // Dừng coroutine
-        }
-        // ----------------------------------------------------
-
-        // Vị trí đáp: (Dòng 86-90 cũ của bạn)
-        Vector3 endPos = new Vector3(playerTransform.position.x + (stopDistance * 1.5f), groundLevelY, 0);
+        // Vị trí đáp X: Vị trí Player, Vị trí đáp Y: Vị trí Rồng đang đứng (Y sẽ được vật lý xử lý sau)
+        Vector3 endPos = new Vector3(playerTransform.position.x, playerTransform.position.y, 0);
 
         while (elapsedTime < introJumpDuration)
         {
@@ -121,7 +110,17 @@ public class DragonAI : MonoBehaviour
         transform.position = endPos;
         isJumping = false;
 
-        // --- GIAI ĐOẠN 1 BẮT ĐẦU ---
+        // BẬT LẠI VẬT LÝ sau khi Intro Jump xong (Gravity sẽ kéo Rồng xuống Ground)
+        if (rb != null)
+        {
+            // 1. CHUYỂN SANG DYNAMIC (ĐỂ TRỌNG LỰC KÉO XUỐNG)
+            rb.isKinematic = false;
+
+            // 2. MỞ KHÓA TRỤC X VÀ Y, CHỈ KHÓA XOAY Z
+            rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        }
+
+        // GIAI ĐOẠN 1 BẮT ĐẦU
         currentState = AIState.Phase1_Fighting;
         nextAttackTime = Time.time + 1.0f;
         nextJumpTime = Time.time + jumpCooldown;
@@ -131,10 +130,13 @@ public class DragonAI : MonoBehaviour
     // --- VÒNG LẶP AI CHÍNH (GIAI ĐOẠN 1) ---
     void Update()
     {
-        // (Kiểm tra null ở đây nữa)
         if (currentState != AIState.Phase1_Fighting || playerTransform == null || isAttacking || isJumping)
         {
-            if (isMoving) isMoving = false;
+            if (isMoving)
+            {
+                isMoving = false;
+                if (rb != null) rb.velocity = new Vector2(0, rb.velocity.y);
+            }
             return;
         }
 
@@ -142,7 +144,7 @@ public class DragonAI : MonoBehaviour
 
         if (Time.time >= nextJumpTime)
         {
-            StartCoroutine(JumpRoutine());
+            StartCoroutine(JumpRoutine(true)); // Nhảy né/lùi sau Cooldown (10s)
             return;
         }
 
@@ -152,27 +154,20 @@ public class DragonAI : MonoBehaviour
         }
         else
         {
-            MoveTowardsPlayerIfNeeded();
+            MoveTowardsPlayerIfNeeded(false);
         }
     }
 
-    // --- SỬA LỖI QUAY MẶT (ĐI LÙI) ---
+    // --- SỬA LỖI QUAY MẶT (Giữ nguyên) ---
     void FacePlayer()
     {
-        // (Kiểm tra null)
         if (playerTransform == null) return;
-
         bool playerIsOnRight = (playerTransform.position.x > transform.position.x);
-
-        if (playerIsOnRight && !isFacingRight_Sprite)
+        if (playerIsOnRight != isFacingRight_Sprite)
         {
-            isFacingRight_Sprite = true;
-            dragonModel.localScale = new Vector3(-Mathf.Abs(dragonModel.localScale.x), dragonModel.localScale.y, dragonModel.localScale.z);
-        }
-        else if (!playerIsOnRight && isFacingRight_Sprite)
-        {
-            isFacingRight_Sprite = false;
-            dragonModel.localScale = new Vector3(Mathf.Abs(dragonModel.localScale.x), dragonModel.localScale.y, dragonModel.localScale.z);
+            isFacingRight_Sprite = playerIsOnRight;
+            float scaleX = Mathf.Abs(dragonModel.localScale.x) * (playerIsOnRight ? -1 : 1);
+            dragonModel.localScale = new Vector3(scaleX, dragonModel.localScale.y, dragonModel.localScale.z);
         }
     }
 
@@ -183,53 +178,76 @@ public class DragonAI : MonoBehaviour
         if (playerTransform == null) return;
         float distance = Vector2.Distance(transform.position, playerTransform.position);
 
+        Debug.Log($"[DragonAI] DecideAction: Player distance = {distance}. Melee range is {meleeRange}.");
+
+        // QUY TẮC 1: Tấn công Gần (Melee Attack)
         if (distance <= meleeRange)
         {
+            Debug.LogWarning("[DragonAI] Quyết định: Player ở trong tầm Melee. Bắt đầu MeleeAttackRoutine()");
             StartCoroutine(MeleeAttackRoutine());
         }
+
+        // QUY TẮC 2: Tấn công Tầm trung (50/50 Jump In / Ranged Attack)
         else if (distance <= rangedRange)
         {
-            StartCoroutine(RangedAttackRoutine());
+            if (Random.value < 0.5f)
+            {
+                Debug.Log("[DragonAI] Quyết định: Tấn công tầm xa (RangedAttackRoutine)");
+                StartCoroutine(RangedAttackRoutine());
+            }
+            else
+            {
+                Debug.Log("[DragonAI] Quyết định: Nhảy tới (JumpRoutine - False)");
+                StartCoroutine(JumpRoutine(false)); // Nhảy tới Player
+            }
         }
-        else
+
+        // QUY TẮC 3: Quá xa (Di chuyển bộ)
+        else // distance > rangedRange (15m)
         {
-            MoveTowardsPlayerIfNeeded();
+            Debug.Log("[DragonAI] Quyết định: Player quá xa. Di chuyển (MoveTowardsPlayerIfNeeded)");
+            MoveTowardsPlayerIfNeeded(true);
         }
     }
 
-    void MoveTowardsPlayerIfNeeded()
+    // >> HÀM DI CHUYỂN DÙNG RIGIDBODY 2D <<
+    void MoveTowardsPlayerIfNeeded(bool forceMove)
     {
-        if (playerTransform == null) return;
-        Vector2 targetPosition = new Vector2(playerTransform.position.x, groundLevelY);
-        float distanceToTarget = Vector2.Distance(transform.position, targetPosition);
+        if (playerTransform == null || rb == null) return;
 
-        if (distanceToTarget > stopDistance)
+        float targetX = playerTransform.position.x;
+        float distanceToTarget = Mathf.Abs(transform.position.x - targetX);
+        float direction = Mathf.Sign(targetX - transform.position.x);
+
+        if (distanceToTarget > stopDistance || forceMove)
         {
             if (!isMoving)
             {
                 isMoving = true;
                 animator.SetTrigger("MoveTrigger");
             }
-            transform.position = Vector2.MoveTowards(
-                transform.position,
-                targetPosition,
-                moveSpeed * Time.deltaTime
-            );
+            // Di chuyển bằng Rigidbody (chỉ tác động trục X, Y để gravity xử lý)
+            rb.velocity = new Vector2(direction * moveSpeed, rb.velocity.y);
         }
         else
         {
             if (isMoving)
             {
                 isMoving = false;
+                rb.velocity = new Vector2(0, rb.velocity.y);
             }
         }
     }
 
     private IEnumerator MeleeAttackRoutine()
     {
+        Debug.Log("[DragonAI] MeleeAttackRoutine: Bắt đầu chạy Coroutine.");
         if (isMoving) isMoving = false;
         isAttacking = true;
         animator.SetTrigger("AttackTrigger");
+
+        // SỬA: Chỉ dừng vận tốc X, GIỮ vận tốc Y để Rồng rơi xuống (nếu lơ lửng)
+        if (rb != null) rb.velocity = new Vector2(0, rb.velocity.y);
 
         // 1. Chờ đợi Animation (Ví dụ: 0.3 giây trước khi móng vuốt đến vị trí tấn công)
         yield return new WaitForSeconds(0.3f);
@@ -237,7 +255,12 @@ public class DragonAI : MonoBehaviour
         // 2. KÍCH HOẠT HITBOX (PHẦN GÂY SÁT THƯƠNG THỰC TẾ)
         if (meleeHitbox != null)
         {
+            Debug.LogWarning("[DragonAI] MeleeAttackRoutine: >>> KÍCH HOẠT CLAW HITBOX <<<");
             meleeHitbox.ResetAndActivate(); // Bật Hitbox
+        }
+        else
+        {
+            Debug.LogError("[DragonAI] MeleeAttackRoutine: LỖI!! meleeHitbox bị NULL. Không thể kích hoạt.");
         }
 
         // 3. Giữ Hitbox trong thời gian ngắn (Ví dụ: 0.2 giây)
@@ -246,12 +269,14 @@ public class DragonAI : MonoBehaviour
         // 4. TẮT HITBOX
         if (meleeHitbox != null)
         {
+            Debug.Log("[DragonAI] MeleeAttackRoutine: Tắt Claw Hitbox.");
             meleeHitbox.Deactivate(); // Tắt Hitbox
         }
 
-        // 5. Chờ hết thời gian còn lại của animation (tổng cộng 1.5s - 0.3s - 0.2s = 1.0s)
+        // 5. Chờ hết thời gian còn lại của animation
         yield return new WaitForSeconds(1.0f);
 
+        Debug.Log("[DragonAI] MeleeAttackRoutine: Kết thúc tấn công. Reset Cooldown.");
         nextAttackTime = Time.time + attackCooldown;
         isAttacking = false;
     }
@@ -262,34 +287,44 @@ public class DragonAI : MonoBehaviour
         isAttacking = true;
         animator.SetTrigger("SpecialATrigger");
 
-        // (Thêm logic tạo tia lửa ở đây)
+        // SỬA: Chỉ dừng vận tốc X, GIỮ vận tốc Y để Rồng rơi xuống (nếu lơ lửng)
+        if (rb != null) rb.velocity = new Vector2(0, rb.velocity.y);
 
+        // LOGIC TẠO FIREBALL/LỬA CỦA BẠN SẼ ĐƯỢC THỰC HIỆN TẠI ĐÂY
+        // Ví dụ:
+        /*
+        if (fireballPrefab != null && firePoint != null)
+        {
+            Instantiate(fireballPrefab, firePoint.position, Quaternion.identity);
+        }
+        */
+
+        // Chờ Animation/Hiệu ứng phun lửa hoàn tất
         yield return new WaitForSeconds(2.5f);
 
         nextAttackTime = Time.time + attackCooldown;
         isAttacking = false;
     }
 
-    private IEnumerator JumpRoutine()
+    // >> HÀM JUMP ROUTINE DÙNG ADD FORCE <<
+    private IEnumerator JumpRoutine(bool jumpToEscape) // true = nhảy lùi, false = nhảy tới
     {
         if (isMoving) isMoving = false;
         isJumping = true;
         animator.SetTrigger("JumpTrigger");
 
-        float jumpDistance = 5f;
-        float jumpDuration = 1.0f;
-        Vector3 startPos = transform.position;
-        Vector3 endPos = startPos - (isFacingRight_Sprite ? Vector3.left : Vector3.right) * jumpDistance;
-        endPos.y = groundLevelY;
-        float elapsedTime = 0f;
-        while (elapsedTime < jumpDuration)
-        {
-            float height = Mathf.Sin(Mathf.PI * elapsedTime / jumpDuration) * 2f;
-            transform.position = Vector3.Lerp(startPos, endPos, elapsedTime / jumpDuration) + Vector3.up * height;
-            elapsedTime += Time.deltaTime;
-            yield return null;
-        }
-        transform.position = endPos;
+        if (rb == null) yield break;
+
+        float targetX = playerTransform.position.x;
+        float direction = Mathf.Sign(targetX - transform.position.x);
+        float jumpDirection = jumpToEscape ? -direction : direction; // Hướng lực ngang
+
+        rb.velocity = Vector2.zero;
+
+        // Áp dụng lực nhảy
+        rb.AddForce(new Vector2(jumpDirection * jumpForceX, jumpForceY), ForceMode2D.Impulse);
+
+        yield return new WaitForSeconds(jumpToEscape ? 1.0f : 1.5f);
 
         nextJumpTime = Time.time + jumpCooldown;
         isJumping = false;
