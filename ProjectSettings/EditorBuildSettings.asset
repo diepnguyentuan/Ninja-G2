@@ -11,4 +11,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/WolfRound.unity
     guid: a4d68934a5ca3b446b9de97f84a33ac5
+  - enabled: 1
+    path: Assets/Scenes/Village.unity
+    guid: cbba1d3ad48288f4180da7a8bd35e654
   m_configObjects: {}
