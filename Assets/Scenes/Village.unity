@@ -7355,6 +7355,22 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 431644967, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 777134425, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 882737515, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 180864361708002860, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
     - target: {fileID: 364813923369822394, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
       propertyPath: m_RootOrder
       value: 1
@@ -7399,9 +7415,33 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 364813923369822395, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
+      propertyPath: attackDamage
+      value: 50
+      objectReference: {fileID: 0}
     - target: {fileID: 364813923369822397, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
       propertyPath: m_Name
       value: SNinja_nosword_idle 2_0
+      objectReference: {fileID: 0}
+    - target: {fileID: 364813923369822397, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 364813924472647793, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 364813924581898460, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 364813924878141222, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
+      propertyPath: attackDamage
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 3435169645470675762, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}
+      propertyPath: m_Layer
+      value: 7
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 37bccc1694b1fa142a6f4d6ad4bae7c4, type: 3}

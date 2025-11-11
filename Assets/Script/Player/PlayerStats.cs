@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerStats : MonoBehaviour
+public class PlayerStats : MonoBehaviour, IDamageable
 {
     public static PlayerStats instance;
     public static UIExperienceManager Instance;
@@ -93,6 +93,14 @@ public class PlayerStats : MonoBehaviour
         // TODO: chết thì xử lý ở đây (respawn, v.v.)
     }
 
+    public void TakeDamage(int amount, Vector2 attackPosition)
+    {
+        // Tái sử dụng logic của hàm TakeDamage(int)
+        TakeDamage(amount);
+
+        // (Sau này bạn có thể dùng attackPosition để Player bị văng lùi)
+    }
+
     public void Heal(int amount)
     {
         currentHealth += amount;
@@ -105,4 +113,5 @@ public class PlayerStats : MonoBehaviour
         Debug.Log("Player đã chết!");
         // Có thể thêm animation, respawn, v.v...
     }
+
 }
