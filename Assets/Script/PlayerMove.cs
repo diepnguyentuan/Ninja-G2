@@ -14,7 +14,6 @@ public class PlayerMove : MonoBehaviour
     float nextAttackTime = 0f;
     public Transform attackPoint;
     public float attackRange = 1.5f;
-    public int attackDamage = 1; // Nên là 1 để khớp với máu quái vật là 3
     public LayerMask monsterLayer;
 
     // --- THÊM CÁC BIẾN NÀY TỪ FIRESHOOTER ---
@@ -127,19 +126,34 @@ public class PlayerMove : MonoBehaviour
     {
         if (audioSource != null && swordSwingClip != null)
         {
-            // Phát âm thanh chém (PlayOneShot cho phép nhiều tiếng chém chồng lên nhau)
             audioSource.PlayOneShot(swordSwingClip);
         }
 
         if (attackPoint == null) return;
+
+        // 1. LẤY DAME THỰC TẾ TỪ PLAYER STATS
+        // Mặc định là 1 nếu chưa có Stats (để không lỗi game)
+        int currentDamage = 1;
+        if (PlayerStats.instance != null)
+        {
+            currentDamage = PlayerStats.instance.attackDamage; // Lấy từ Stats
+            // Hoặc dùng Property: currentDamage = PlayerStats.instance.AttackDamage;
+        }
+        else
+        {
+            Debug.LogWarning("Không tìm thấy PlayerStats! Dùng damage mặc định = 1");
+        }
+
         Collider2D[] hitObjects = Physics2D.OverlapCircleAll(attackPoint.position, attackRange, monsterLayer);
+
         foreach (Collider2D collider in hitObjects)
         {
             IDamageable damageableObject = collider.GetComponent<IDamageable>();
             if (damageableObject != null)
             {
-                // Gửi vị trí của Player để quái biết hướng văng
-                damageableObject.TakeDamage(attackDamage, transform.position);
+                // 2. GÂY SÁT THƯƠNG VỚI CHỈ SỐ MỚI
+                damageableObject.TakeDamage(currentDamage, transform.position);
+                Debug.Log($"Chém trúng quái! Gây {currentDamage} sát thương.");
             }
         }
     }
@@ -189,10 +203,13 @@ public class PlayerMove : MonoBehaviour
     }
     private void OnTriggerEnter2D(Collider2D other)
     {
+        Debug.Log($"Player va chạm với: {other.gameObject.name} - Tag: {other.tag}");
         // Chỉ xử lý nếu va chạm với hitbox địch và chưa bị văng
         if (other.CompareTag("EnemyAttack") && !isKnockedBack)
         {
             Debug.Log("Player đã bị trúng đòn!");
+
+            if (myAnim) myAnim.SetTrigger("TakeDamage");
 
             // Trừ máu thông qua Singleton
             if (PlayerStats.instance != null)
