@@ -15,7 +15,7 @@ public class NPCDialogueTrigger : MonoBehaviour
     public ShopManager shopManager;
 
     public QuestUIManager questUIManager;
-
+    
     void Update()
     {
         if (isPlayerInRange && Input.GetKeyDown(interactKey))
