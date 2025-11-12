@@ -25,6 +25,8 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
     [Header("Health Settings")]
     public int maxHealth = 3;
 
+    public int xpValue = 50;
+
     [Header("Health Bar")]
     public GameObject healthBarCanvasPrefab;
     public Transform healthBarAttachPoint;
@@ -486,7 +488,14 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         Debug.Log($"TakeDamage trigger set. Animator state: {animator.GetCurrentAnimatorStateInfo(0).IsName("Damage")}");
 
         // Thực hiện knockback
-        Vector2 knockbackDirection = ((Vector2)transform.position - playerPosition).normalized;
+        // 1. Chỉ tính hướng trên trục X
+        float horizontalDirection = Mathf.Sign(transform.position.x - playerPosition.x);
+
+        // 2. Nếu Player đứng ngay trên/dưới (hiếm), mặc định đẩy lùi về bên phải
+        if (horizontalDirection == 0) horizontalDirection = 1;
+
+        // 3. Tạo vector văng chỉ theo chiều ngang
+        Vector2 knockbackDirection = new Vector2(horizontalDirection, 0);
         float timer = 0;
         Vector3 startPos = transform.position;
         Vector3 endPos = startPos + (Vector3)knockbackDirection * knockbackPower;
@@ -532,6 +541,7 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
         // 🛑 RESET HOÀN TOÀN TRẠNG THÁI DAMAGE
         isTakingDamage = false;
+        isAttacking = false;
 
         // 🛑 RESET TẤT CẢ ANIMATOR PARAMETERS
         ResetAllAnimatorTriggers();
@@ -587,6 +597,15 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
         animator.SetTrigger(hashDeath);
         StopAllCoroutines();
         currentAICoroutine = null;
+
+        if (PlayerStats.instance != null)
+        {
+            PlayerStats.instance.GainExp(xpValue);
+        }
+        else
+        {
+            Debug.LogWarning("Không tìm thấy PlayerStats.instance!");
+        }
 
         // LOGIC NHIỆM VỤ: Gọi Singleton QuestManager để đăng ký sói bị tiêu diệt
         if (QuestManager.Instance != null && QuestManager.Instance.isQuestActive)
