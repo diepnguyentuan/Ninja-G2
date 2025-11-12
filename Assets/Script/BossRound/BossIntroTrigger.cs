@@ -33,6 +33,11 @@ public class BossIntroTrigger : MonoBehaviour
     [TextArea(2, 5)]
     public string bossLine = "Kẻ nào dám... quấy rầy giấc ngủ của ta?!";
 
+    [Header("Player Intro Movement")]
+    [Tooltip("Kéo Empty Object định nghĩa vị trí X mà Player nên đứng sau Intro.")]
+    public Transform playerIntroTargetPosition;
+    public float playerIntroMoveSpeed = 3.0f; // Tốc độ Player tự động di chuyển
+
     // --- Biến riêng tư (Private) để script tự quản lý ---
     private Animator dragonAnim;
     private CameraFollow cameraFollowScript;
@@ -40,7 +45,9 @@ public class BossIntroTrigger : MonoBehaviour
     private Transform playerTransform;
     private PlayerMove playerMoveScript;
 
-    private float cameraTargetZ = -10f; // Giá trị Z an toàn, mặc định
+    private Transform originalCameraParent;
+
+    private float cameraTargetZ = -10f;
     private IntroState state = IntroState.Waiting;
 
     void Start()
@@ -55,8 +62,6 @@ public class BossIntroTrigger : MonoBehaviour
             Debug.LogError("BossIntroTrigger: CHƯA GÁN DRAGON ANIMATOR!");
         }
 
-        // --- LOGIC TÌM CAMERA ĐÃ ĐƯỢC DI CHUYỂN KHỎI START() ---
-
         // 2. Đảm bảo các UI được ẩn khi bắt đầu
         if (bossHealthBarUI != null)
             bossHealthBarUI.SetActive(false);
@@ -69,9 +74,7 @@ public class BossIntroTrigger : MonoBehaviour
         // Chỉ kích hoạt nếu là Player VÀ cutscene chưa chạy bao giờ
         if (state == IntroState.Waiting && other.CompareTag("Player"))
         {
-            // --- BẮT ĐẦU SỬA LỖI ---
             // 1. TÌM CAMERA NGAY KHI PLAYER VA CHẠM
-            // (Vì Player mang theo Camera "bất tử")
             if (Camera.main != null)
             {
                 cameraFollowScript = Camera.main.GetComponent<CameraFollow>();
@@ -79,18 +82,17 @@ public class BossIntroTrigger : MonoBehaviour
             }
             else
             {
-                // Nếu VẪN không tìm thấy, báo lỗi và dừng lại
-                Debug.LogError("BossIntroTrigger: KHÔNG TÌM THẤY MAIN CAMERA! (Camera \"bất tử\" có bị thiếu Tag 'MainCamera' không?)");
-                return; // Dừng cutscene
+                Debug.LogError("BossIntroTrigger: KHÔNG TÌM THẤY MAIN CAMERA!");
+                return;
             }
 
             // 2. Lấy giá trị Z an toàn từ script CameraFollow
             if (cameraFollowScript != null)
             {
-                cameraTargetZ = cameraFollowScript.Offset.z;
+                // Giả sử CameraFollow có một offset Z hoặc dùng giá trị mặc định
+                // (Nếu bạn không có biến Offset Z trong CameraFollow, hãy giữ nguyên cameraTargetZ = -10f)
+                // cameraTargetZ = cameraFollowScript.Offset.z; 
             }
-            // --- KẾT THÚC SỬA LỖI ---
-
 
             // 3. Đánh dấu là "đang chạy"
             state = IntroState.Running;
@@ -111,7 +113,7 @@ public class BossIntroTrigger : MonoBehaviour
     }
 
     /// <summary>
-    /// Đây là Coroutine "Đạo diễn" toàn bộ màn Cutscene Giai đoạn 0
+    /// Coroutine "Đạo diễn" toàn bộ màn Cutscene
     /// </summary>
     private IEnumerator StartBossIntroSequence()
     {
@@ -121,6 +123,12 @@ public class BossIntroTrigger : MonoBehaviour
         playerMoveScript.enabled = false;
         if (cameraFollowScript != null)
             cameraFollowScript.enabled = false;
+
+        originalCameraParent = cameraTransform.parent;
+        cameraTransform.SetParent(null);
+
+        Rigidbody2D dragonRB = dragonBoss.GetComponent<Rigidbody2D>();
+
 
         // 2. Tính toán vị trí camera sẽ di chuyển đến
         Vector3 dragonCamPos = new Vector3(
@@ -141,7 +149,7 @@ public class BossIntroTrigger : MonoBehaviour
         }
         cameraTransform.position = dragonCamPos;
 
-        // --- PHẦN 2: RỒNG NÓI & GIỮ CAMERA ---
+        // --- PHẦN 2: RỒNG NÓI & PLAYER DI CHUYỂN ---
 
         // 4. Kích hoạt animation "Talk" và hiện hộp thoại
         if (dragonAnim != null)
@@ -153,8 +161,44 @@ public class BossIntroTrigger : MonoBehaviour
             dialogueBoxUI.SetActive(true);
         }
 
-        // 5. Giữ camera ở chỗ Rồng
-        yield return new WaitForSeconds(cameraHoldTime);
+        // 5. Giữ camera ở chỗ Rồng VÀ di chuyển Player
+        float timer = 0f;
+        Vector3 playerTargetPos = Vector3.zero;
+        bool playerArrived = false;
+
+        // Thiết lập vị trí đích của Player (Chỉ thay đổi X, giữ nguyên Y/Z)
+        if (playerIntroTargetPosition != null)
+        {
+            playerTargetPos = new Vector3(
+                playerIntroTargetPosition.position.x,
+                playerTransform.position.y, // Giữ Y của Player
+                playerTransform.position.z
+            );
+        }
+
+        // Vòng lặp chạy trong suốt thời gian Rồng nói (cameraHoldTime)
+        while (timer < cameraHoldTime)
+        {
+            // 5A. Di chuyển Player tự động (Chỉ khi có Target Position)
+            if (playerIntroTargetPosition != null && !playerArrived)
+            {
+                playerTransform.position = Vector3.MoveTowards(
+                    playerTransform.position,
+                    playerTargetPos,
+                    playerIntroMoveSpeed * Time.deltaTime
+                );
+
+                if (Vector3.Distance(playerTransform.position, playerTargetPos) < 0.1f)
+                {
+                    playerArrived = true;
+                    playerTransform.position = playerTargetPos;
+                }
+            }
+
+            // 5B. Đếm thời gian camera giữ
+            timer += Time.deltaTime;
+            yield return null;
+        }
 
         // --- PHẦN 3: CHUYỂN TIẾP VỀ PLAYER ---
 
@@ -165,7 +209,18 @@ public class BossIntroTrigger : MonoBehaviour
         if (bossHealthBarUI != null)
             bossHealthBarUI.SetActive(true);
 
-        // 7. Camera bắt đầu quay về Player
+        // 7. Rồng bắt đầu hạ cánh xuống đất (IntroJumpRoutine)
+        DragonAI bossAI = dragonBoss.GetComponent<DragonAI>();
+        if (bossAI != null)
+        {
+            bossAI.StartCombat(); // Hàm này sẽ kích hoạt IntroJumpRoutine
+        }
+
+        // *Đợi một khoảng thời gian để Rồng thực hiện Intro Jump trước khi Camera lia về Player*
+        // Giả sử IntroJumpDuration = 1.5s, chúng ta chờ khoảng 1.0s trước khi camera quay về.
+        yield return new WaitForSeconds(1.0f);
+
+        // 8. Camera bắt đầu quay về Player
         Vector3 playerCamPos = new Vector3(
             playerTransform.position.x,
             playerTransform.position.y,
@@ -174,6 +229,7 @@ public class BossIntroTrigger : MonoBehaviour
 
         while (Vector3.Distance(cameraTransform.position, playerCamPos) > 0.1f)
         {
+            // Cập nhật vị trí Player vì Rồng đang Intro Jump, Player đã di chuyển xong
             playerCamPos.x = playerTransform.position.x;
             playerCamPos.y = playerTransform.position.y;
 
@@ -188,24 +244,17 @@ public class BossIntroTrigger : MonoBehaviour
 
         // --- PHẦN 4: TRẬN ĐẤU BẮT ĐẦU ---
 
-        // 8. Rồng vào thế chiến đấu
-        if (dragonAnim != null)
-            dragonAnim.SetTrigger("StartFight");
-
-        // 9. Kích hoạt "bộ não" AI của Rồng
-        DragonAI bossAI = dragonBoss.GetComponent<DragonAI>();
-        if (bossAI != null)
-        {
-            bossAI.StartCombat();
-        }
-
-        // 10. Trả lại điều khiển cho Camera và Player
+        // 9. Kích hoạt lại Camera và Player
         if (cameraFollowScript != null)
+        {
+            cameraTransform.SetParent(originalCameraParent);
+
             cameraFollowScript.enabled = true;
+        }
 
         playerMoveScript.enabled = true;
 
-        // 11. Đánh dấu cutscene đã xong
+        // 10. Đánh dấu cutscene đã xong
         state = IntroState.Finished;
     }
 }

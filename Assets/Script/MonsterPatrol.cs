@@ -25,6 +25,8 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
     [Header("Health Settings")]
     public int maxHealth = 3;
 
+    public int xpValue = 50;
+
     [Header("Health Bar")]
     public GameObject healthBarCanvasPrefab;
     public Transform healthBarAttachPoint;
@@ -43,7 +45,14 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
     [Range(0f, 1f)]
     public float potionDropChance = 0.1f;
     public float lootDropForce = 2.5f;
-    public int experienceDrop = 25; // Sói sẽ cho 25 XP
+
+    [Header("Audio SFX")]
+    public AudioClip deathSoundClip;
+    public AudioClip howlSoundClip;
+    [Range(0f, 1f)]
+    public float howlVolume = 0.5f;
+
+    private AudioSource audioSource;
 
     #endregion
 
@@ -83,6 +92,7 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
     {
         animator = GetComponent<Animator>();
         mainCollider = GetComponent<Collider2D>();
+        audioSource = GetComponentInChildren<AudioSource>();
         startPosition = transform.position;
         initialScale = transform.localScale;
         isFacingRight = (initialScale.x < 0);
@@ -198,28 +208,38 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
     void SwitchState(AIState newState)
     {
+        // 🛑 KHÔNG cho phép chuyển state khi đang damage (trừ Returning)
+        if (isTakingDamage && newState != AIState.Returning)
+        {
+            Debug.Log($"Blocked state switch to {newState} while taking damage");
+            return;
+        }
+
         StopCurrentAICoroutine();
 
+        // Cập nhật cờ state
         isChasing = (newState == AIState.Chasing);
         isSearching = (newState == AIState.Searching);
         isReturning = (newState == AIState.Returning);
 
-        if (!isChasing && !isAttacking) // Nếu chuyển trạng thái không phải Chasing, tắt isAttacking
-        {
-            isAttacking = false;
-        }
+        if (!isChasing) isAttacking = false;
 
+        // 🛑 RESET ANIMATION TRƯỚC KHI CHUYỂN STATE MỚI
+        ResetAllAnimatorBools();
+
+        // Cập nhật animator parameters cho state mới
         animator.SetBool(hashIsChasing, isChasing);
         animator.SetBool(hashIsWalking, newState == AIState.Returning || newState == AIState.Patrolling);
         animator.SetBool(hashIsAttacking, isAttacking);
 
+        // Khởi chạy behavior mới
         switch (newState)
         {
             case AIState.Patrolling:
                 currentAICoroutine = StartCoroutine(PatrolRoutine());
                 break;
             case AIState.Chasing:
-                FacePlayer();
+                // Chase xử lý trong Update
                 break;
             case AIState.Searching:
                 currentAICoroutine = StartCoroutine(SearchRoutine());
@@ -228,6 +248,8 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
                 currentAICoroutine = StartCoroutine(ReturnRoutine());
                 break;
         }
+
+        Debug.Log($"Switched to state: {newState}");
     }
 
     void StopCurrentAICoroutine()
@@ -238,6 +260,10 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
             currentAICoroutine = null;
         }
         isSearching = false;
+        if (audioSource != null)
+        {
+            audioSource.Stop();
+        }
     }
 
     #endregion
@@ -246,6 +272,17 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
     private IEnumerator PatrolRoutine()
     {
+        if (audioSource != null && howlSoundClip != null)
+        {
+            audioSource.clip = howlSoundClip;
+            audioSource.loop = true; // Đảm bảo thuộc tính loop được đặt, ngay cả khi nó đã check trong Inspector
+
+            if (!audioSource.isPlaying)
+            {
+                audioSource.volume = howlVolume;
+                audioSource.Play();
+            }
+        }
         Vector3 targetPosition;
         while (!isDead)
         {
@@ -283,6 +320,7 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
             if (ShouldInterruptAI()) yield break;
             transform.position = startPosition;
         }
+        if (audioSource != null) audioSource.Stop();
     }
 
 
@@ -395,50 +433,73 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
     public void DisableAttackHitbox() { if (attackHitbox != null) attackHitbox.SetActive(false); }
     public void AttackComplete() { isAttacking = false; animator.SetBool(hashIsAttacking, false); }
 
+    #region Combat Logic
+
+    #region Combat Logic
+
     public void TakeDamage(int amount, Vector2 playerPosition)
     {
         if (isDead) return;
 
+        Debug.Log($"TakeDamage called: {amount} damage, currentHealth: {currentHealth}");
+
         currentHealth -= amount;
         UpdateHealthBarVisuals();
 
-        // 1. KIỂM TRA MÁU ĐÃ HẾT (Ưu tiên)
         if (currentHealth <= 0)
         {
+            Debug.Log("Health <= 0, switching to death");
             SwitchStateToDeath();
             return;
         }
 
-        // 2. MÁU CÒN: Chuẩn bị Stun/Knockback
-
+        // 🛑 DỪNG MỌI HOẠT ĐỘNG AI NGAY LẬP TỨC
         StopCurrentAICoroutine();
-
-        // Dừng Coroutine Knockback cũ trước khi chạy cái mới (Chống kẹt)
         if (currentKnockbackRoutine != null)
         {
             StopCoroutine(currentKnockbackRoutine);
-            isTakingDamage = false;
+            Debug.Log("Stopped previous knockback routine");
         }
 
+        Debug.Log("Starting new knockback routine");
         currentKnockbackRoutine = StartCoroutine(KnockbackRoutine(playerPosition));
     }
 
     private IEnumerator KnockbackRoutine(Vector2 playerPosition)
     {
-        // Kiểm tra ưu tiên Chết ngay khi bắt đầu (Phòng trường hợp TakeDamage bị gọi quá nhanh)
+        Debug.Log("KnockbackRoutine started");
+
         if (currentHealth <= 0)
         {
             SwitchStateToDeath();
             yield break;
         }
 
-        animator.SetTrigger(hashTakeDamage);
+        // 🎯 KÍCH HOẠT TRẠNG THÁI DAMAGE
         isTakingDamage = true;
+        Debug.Log("isTakingDamage set to true");
 
-        Vector2 knockbackDirection = ((Vector2)transform.position - playerPosition).normalized;
+        // 🛑 RESET TẤT CẢ TRIGGERS TRƯỚC KHI BẮT ĐẦU ANIMATION DAMAGE
+        ResetAllAnimatorTriggers();
+        Debug.Log("All animator triggers reset");
+
+        // 🎯 QUAN TRỌNG: Đảm bảo trigger được kích hoạt
+        animator.SetTrigger(hashTakeDamage);
+        Debug.Log($"TakeDamage trigger set. Animator state: {animator.GetCurrentAnimatorStateInfo(0).IsName("Damage")}");
+
+        // Thực hiện knockback
+        // 1. Chỉ tính hướng trên trục X
+        float horizontalDirection = Mathf.Sign(transform.position.x - playerPosition.x);
+
+        // 2. Nếu Player đứng ngay trên/dưới (hiếm), mặc định đẩy lùi về bên phải
+        if (horizontalDirection == 0) horizontalDirection = 1;
+
+        // 3. Tạo vector văng chỉ theo chiều ngang
+        Vector2 knockbackDirection = new Vector2(horizontalDirection, 0);
         float timer = 0;
         Vector3 startPos = transform.position;
         Vector3 endPos = startPos + (Vector3)knockbackDirection * knockbackPower;
+
         while (timer < knockbackDuration)
         {
             if (isDead) yield break;
@@ -447,45 +508,84 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
             yield return null;
         }
 
-        //yield return new WaitForSeconds(stunDurationAfterKnockback);
-
-        //if (isDead) yield break;
-
-        // 2. KẾT THÚC STUN
-        //isTakingDamage = false;
+        Debug.Log("Knockback finished, waiting for DamageComplete animation event");
+        yield return new WaitForSeconds(stunDurationAfterKnockback);
         currentKnockbackRoutine = null;
-        //DecideNextStateAfterDamage();
+        if (!isDead && isTakingDamage)
+        {
+            DamageComplete(); // Tự động gọi DamageComplete nếu sói vẫn kẹt
+        }
+    }
+
+    // 🎯 PHƯƠNG THỨC QUAN TRỌNG: Reset tất cả triggers
+    void ResetAllAnimatorTriggers()
+    {
+        animator.ResetTrigger(hashAttack);
+        animator.ResetTrigger(hashTakeDamage);
+        animator.ResetTrigger(hashDeath);
+    }
+
+    // 🎯 PHƯƠNG THỨC QUAN TRỌNG: Reset tất cả bool parameters
+    void ResetAllAnimatorBools()
+    {
+        animator.SetBool(hashIsWalking, false);
+        animator.SetBool(hashIsChasing, false);
+        animator.SetBool(hashIsAttacking, false);
     }
 
     public void DamageComplete()
     {
         if (isDead) return;
 
-        // Đây là nơi chính thức kết thúc trạng thái Damage
-        isTakingDamage = false;
+        Debug.Log("DamageComplete called - Ending damage state");
 
-        // Khi Damage kết thúc, ta quyết định trạng thái AI tiếp theo
+        // 🛑 RESET HOÀN TOÀN TRẠNG THÁI DAMAGE
+        isTakingDamage = false;
+        isAttacking = false;
+
+        // 🛑 RESET TẤT CẢ ANIMATOR PARAMETERS
+        ResetAllAnimatorTriggers();
+        ResetAllAnimatorBools();
+
+        // 🛑 ĐẢM BẢO ATTACK HITBOX TẮT
+        DisableAttackHitbox();
+
+        // 🎯 QUYẾT ĐỊNH TRẠNG THÁI TIẾP THEO
         DecideNextStateAfterDamage();
     }
 
+    #endregion
+
     void DecideNextStateAfterDamage()
     {
-        if (playerTransform == null) { SwitchState(AIState.Returning); return; }
+        if (playerTransform == null)
+        {
+            Debug.Log("No player found, returning to start");
+            SwitchState(AIState.Returning);
+            return;
+        }
 
         float distanceToPlayerX = Mathf.Abs(transform.position.x - playerTransform.position.x);
         float distanceToPlayerY = Mathf.Abs(transform.position.y - playerTransform.position.y);
         float distanceFromStart = Vector3.Distance(transform.position, startPosition);
 
-        // Quay lại Chase nếu Player còn gần và chưa vượt quá maxChaseDistance
-        if (distanceToPlayerX <= detectionRange && distanceToPlayerY < 3f && distanceFromStart <= maxChaseDistance)
+        bool canChase = distanceToPlayerX <= detectionRange &&
+                       distanceToPlayerY < 3f &&
+                       distanceFromStart <= maxChaseDistance;
+
+        if (canChase)
         {
+            Debug.Log("Player in range, switching to Chase");
             SwitchState(AIState.Chasing);
         }
         else
         {
+            Debug.Log("Player out of range, switching to Return");
             SwitchState(AIState.Returning);
         }
     }
+
+    #endregion
 
 
     void SwitchStateToDeath()
@@ -500,14 +600,17 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
         if (PlayerStats.instance != null)
         {
-            PlayerStats.instance.GainExp(experienceDrop);
+            PlayerStats.instance.GainExp(xpValue);
+        }
+        else
+        {
+            Debug.LogWarning("Không tìm thấy PlayerStats.instance!");
         }
 
         // LOGIC NHIỆM VỤ: Gọi Singleton QuestManager để đăng ký sói bị tiêu diệt
-        if (QuestManager.Instance != null)
+        if (QuestManager.Instance != null && QuestManager.Instance.isQuestActive)
         {
-            // Gọi hàm RegisterKill() để tăng biến currentKills và kiểm tra hoàn thành
-            QuestManager.Instance.RegisterKill();
+            QuestManager.Instance.RegisterKill(); // Giả định hàm này tồn tại
         }
 
         if (mainCollider != null) mainCollider.enabled = false;
@@ -516,6 +619,11 @@ public class MonsterPatrol : MonoBehaviour, IDamageable
 
         if (healthBarAttachPoint != null && healthBarAttachPoint.childCount > 0)
             Destroy(healthBarAttachPoint.GetChild(0).gameObject);
+
+        if (deathSoundClip != null)
+        {
+            AudioSource.PlayClipAtPoint(deathSoundClip, transform.position, 1.0f);
+        }
 
         DropLoot();
         Destroy(gameObject, 2f);

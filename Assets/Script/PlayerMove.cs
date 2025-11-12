@@ -35,6 +35,12 @@ public class PlayerMove : MonoBehaviour
     bool jumpQueued;
     private bool isKnockedBack = false; // Trạng thái bị văng/choáng
 
+    [Header("Audio")]
+    [Tooltip("Kéo Audio Clip tiếng chém vào đây")]
+    public AudioClip swordSwingClip;
+
+    private AudioSource audioSource;
+
     Rigidbody2D myBody;
     Animator myAnim;
 
@@ -47,6 +53,12 @@ public class PlayerMove : MonoBehaviour
         if (attackPoint == null)
         {
             Debug.LogError("Chưa gán AttackPoint cho PlayerMove script!");
+        }
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            Debug.LogWarning("PlayerMove: Thiếu component AudioSource! Tự thêm.");
+            audioSource = gameObject.AddComponent<AudioSource>();
         }
     }
 
@@ -113,6 +125,12 @@ public class PlayerMove : MonoBehaviour
     // Thực hiện kiểm tra va chạm đòn đánh
     void PerformHitCheck()
     {
+        if (audioSource != null && swordSwingClip != null)
+        {
+            // Phát âm thanh chém (PlayOneShot cho phép nhiều tiếng chém chồng lên nhau)
+            audioSource.PlayOneShot(swordSwingClip);
+        }
+
         if (attackPoint == null) return;
         Collider2D[] hitObjects = Physics2D.OverlapCircleAll(attackPoint.position, attackRange, monsterLayer);
         foreach (Collider2D collider in hitObjects)
