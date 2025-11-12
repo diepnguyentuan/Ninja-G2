@@ -5,7 +5,9 @@ using UnityEngine;
 public class PlayerStats : MonoBehaviour, IDamageable
 {
     public static PlayerStats instance;
-    public static UIExperienceManager Instance;
+    //public static UIExperienceManager Instance;
+    public static event System.Action<int, int> OnExperienceChanged; // Gửi (currentExp, expToNextLevel)
+    public static event System.Action<int> OnLevelChanged;
     public static event System.Action<int, int> OnHealthChanged;
 
     [Header("Base/Progression")]
@@ -40,9 +42,8 @@ public class PlayerStats : MonoBehaviour, IDamageable
     void Start()
     {
         currentHealth = maxHealth;
-        UIExperienceManager.Instance?.UpdateLevelUI(level);
-        UIExperienceManager.Instance?.UpdateExpUI(currentExp, expToNextLevel);
-        UIExperienceManager.Instance?.UpdateHPUI(currentHealth, maxHealth);
+        OnLevelChanged?.Invoke(level);
+        OnExperienceChanged?.Invoke(currentExp, expToNextLevel);
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
     }
 
@@ -51,7 +52,7 @@ public class PlayerStats : MonoBehaviour, IDamageable
     {
         currentExp += Mathf.Max(0, amount);
         while (currentExp >= expToNextLevel) LevelUp(); // hỗ trợ lên nhiều cấp một lúc
-        UIExperienceManager.Instance?.UpdateExpUI(currentExp, expToNextLevel);
+        OnExperienceChanged?.Invoke(currentExp, expToNextLevel);
     }
 
     private void LevelUp()
@@ -70,9 +71,9 @@ public class PlayerStats : MonoBehaviour, IDamageable
         expToNextLevel = Mathf.RoundToInt(expToNextLevel * expCurveMultiplier);
 
         // cập nhật UI
-        UIExperienceManager.Instance?.UpdateLevelUI(level);
-        UIExperienceManager.Instance?.UpdateExpUI(currentExp, expToNextLevel);
-        UIExperienceManager.Instance?.UpdateHPUI(currentHealth, maxHealth);
+        OnLevelChanged?.Invoke(level);
+        OnExperienceChanged?.Invoke(currentExp, expToNextLevel);
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
         Debug.Log($"🎉 Level Up → Lv.{level} | MaxHP={maxHealth} | ATK={attackDamage} | NextEXP={expToNextLevel}");
     }

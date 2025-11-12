@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,6 +12,9 @@ public class UIExperienceManager : MonoBehaviour
     public TMP_Text levelText;
     public Slider expSlider;
     public Slider hpSlider;
+    [Header("UI Text Display")]
+    public TMP_Text hpText; 
+    public TMP_Text expText;
 
     private void Awake()
     {
@@ -32,6 +35,9 @@ public class UIExperienceManager : MonoBehaviour
         if (PlayerStats.instance != null)
         {
             PlayerStats.OnHealthChanged += OnHealthChanged;
+
+            PlayerStats.OnExperienceChanged += OnExperienceChanged;
+            PlayerStats.OnLevelChanged += OnLevelChanged;
         }
     }
 
@@ -65,6 +71,21 @@ public class UIExperienceManager : MonoBehaviour
         if (expToNext <= 0) { expSlider.value = 0; return; }
 
         expSlider.value = Mathf.Clamp01((float)currentExp / expToNext);
+        if (expText != null)
+        {
+            expText.text = $"{currentExp} / {expToNext}";
+        }
+    }
+    //Tự động chạy khi Level thay đổi
+    private void OnLevelChanged(int newLevel)
+    {
+        UpdateLevelUI(newLevel);
+    }
+
+    //Tự động chạy khi EXP thay đổi
+    private void OnExperienceChanged(int currentExp, int expToNext)
+    {
+        UpdateExpUI(currentExp, expToNext);
     }
 
     private void OnHealthChanged(int currentHP, int maxHP)
@@ -78,5 +99,10 @@ public class UIExperienceManager : MonoBehaviour
         if (maxHP <= 0) { hpSlider.value = 0; return; }
 
         hpSlider.value = Mathf.Clamp01((float)currentHP / maxHP);
+
+        if (hpText != null)
+        {
+            hpText.text = $"{currentHP} / {maxHP}";
+        }
     }
 }
