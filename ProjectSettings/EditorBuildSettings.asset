@@ -6,12 +6,15 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/BossRound.unity
-    guid: 2cda990e2423bbf4892e6590ba056729
+    path: Assets/Scenes/Intro_game.unity
+    guid: 3fa6487cb8842104193d8c9b738bf68a
+  - enabled: 1
+    path: Assets/Scenes/Village.unity
+    guid: cbba1d3ad48288f4180da7a8bd35e654
   - enabled: 1
     path: Assets/Scenes/WolfRound.unity
     guid: a4d68934a5ca3b446b9de97f84a33ac5
   - enabled: 1
-    path: Assets/Scenes/Village.unity
-    guid: cbba1d3ad48288f4180da7a8bd35e654
+    path: Assets/Scenes/Boss.unity
+    guid: 62876d4df5aed054a90df8af29208544
   m_configObjects: {}

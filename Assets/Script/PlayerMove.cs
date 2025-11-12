@@ -17,6 +17,16 @@ public class PlayerMove : MonoBehaviour
     public int attackDamage = 1; // Nên là 1 để khớp với máu quái vật là 3
     public LayerMask monsterLayer;
 
+    // --- THÊM CÁC BIẾN NÀY TỪ FIRESHOOTER ---
+    [Header("Fireball")]
+    public GameObject fireballPrefab;
+    public Transform firePoint;          // Điểm bắn (Empty ở tay)
+    public int fireballDamage = 100;
+    public float projectileSpeed = 12f;
+    public float projectileRange = 6f;
+    public float fireCooldown = 0.4f;
+    private float nextFireTime = 0f;
+
     [Header("Physics")]
     public float knockbackForce = 15f; // Lực bị văng đi
 
@@ -24,6 +34,12 @@ public class PlayerMove : MonoBehaviour
     bool facingRight = true;
     bool jumpQueued;
     private bool isKnockedBack = false; // Trạng thái bị văng/choáng
+
+    [Header("Audio")]
+    [Tooltip("Kéo Audio Clip tiếng chém vào đây")]
+    public AudioClip swordSwingClip;
+
+    private AudioSource audioSource;
 
     Rigidbody2D myBody;
     Animator myAnim;
@@ -37,6 +53,12 @@ public class PlayerMove : MonoBehaviour
         if (attackPoint == null)
         {
             Debug.LogError("Chưa gán AttackPoint cho PlayerMove script!");
+        }
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            Debug.LogWarning("PlayerMove: Thiếu component AudioSource! Tự thêm.");
+            audioSource = gameObject.AddComponent<AudioSource>();
         }
     }
 
@@ -56,6 +78,13 @@ public class PlayerMove : MonoBehaviour
             }
         }
 
+        // --- THÊM LOGIC BẮN TỪ FIRESHOOTER ---
+        if (Input.GetKeyDown(KeyCode.F) && Time.time >= nextFireTime)
+        {
+            ShootFireball();
+            nextFireTime = Time.time + fireCooldown;
+        }
+
         // Xử lý nhảy
         if (Input.GetKeyDown(KeyCode.W) && grounded)
         {
@@ -67,9 +96,41 @@ public class PlayerMove : MonoBehaviour
         if (myAnim) myAnim.SetBool("IsGrounded", grounded);
     }
 
+    void ShootFireball()
+    {
+        if (!firePoint || !fireballPrefab) return;
+
+        // Lấy hướng từ biến "facingRight" 
+        int dir = facingRight ? 1 : -1;
+        // --------------------------------
+
+        var go = Instantiate(fireballPrefab, firePoint.position, Quaternion.identity);
+
+        var fb = go.GetComponent<Fireball>();
+        if (fb)
+        {
+            fb.speed = projectileSpeed;
+            fb.maxDistance = projectileRange;
+            fb.damage = fireballDamage;
+            fb.Launch(dir);
+        }
+        else
+        {
+            var rb = go.GetComponent<Rigidbody2D>();
+            if (rb) rb.velocity = new Vector2(dir * projectileSpeed, 0f);
+            Destroy(go, projectileRange / Mathf.Max(0.01f, projectileSpeed));
+        }
+    }
+
     // Thực hiện kiểm tra va chạm đòn đánh
     void PerformHitCheck()
     {
+        if (audioSource != null && swordSwingClip != null)
+        {
+            // Phát âm thanh chém (PlayOneShot cho phép nhiều tiếng chém chồng lên nhau)
+            audioSource.PlayOneShot(swordSwingClip);
+        }
+
         if (attackPoint == null) return;
         Collider2D[] hitObjects = Physics2D.OverlapCircleAll(attackPoint.position, attackRange, monsterLayer);
         foreach (Collider2D collider in hitObjects)
@@ -126,8 +187,6 @@ public class PlayerMove : MonoBehaviour
         if (collision.collider.CompareTag("ground"))
             grounded = false;
     }
-
-    // Xử lý khi bị quái vật tấn công
     private void OnTriggerEnter2D(Collider2D other)
     {
         // Chỉ xử lý nếu va chạm với hitbox địch và chưa bị văng
@@ -141,28 +200,41 @@ public class PlayerMove : MonoBehaviour
                 PlayerStats.instance.TakeDamage(10); // Ví dụ sát thương quái = 10
             }
 
-            // Tính toán hướng văng
+            // Tính toán và áp dụng lực văng
             Vector2 knockbackDirection = ((Vector2)transform.position - (Vector2)other.transform.position).normalized;
-            // Reset vận tốc trước khi thêm lực để đảm bảo nhất quán
             myBody.velocity = Vector2.zero;
             myBody.AddForce(knockbackDirection * knockbackForce, ForceMode2D.Impulse);
 
             // Kích hoạt trạng thái bị văng/choáng
             isKnockedBack = true;
+
+            CameraFollow camFollow = Camera.main?.GetComponent<CameraFollow>();
+
+            // 1. TẮT FOLLOW VÀ KÍCH HOẠT RUNG
+            if (camFollow != null)
+            {
+                camFollow.enabled = false;
+                camFollow.TriggerShake();
+            }
+
             // Dừng Coroutine cũ nếu có và bắt đầu Coroutine mới bằng tên chuỗi
             StopCoroutine("KnockbackCooldown");
             StartCoroutine("KnockbackCooldown");
-
-            // --- KÍCH HOẠT RUNG CAMERA ---
-            Camera.main?.GetComponent<CameraFollow>()?.TriggerShake();
-            // --- --------------------- ---
         }
     }
 
     // Coroutine để kết thúc trạng thái bị văng/choáng sau một khoảng thời gian
     private IEnumerator KnockbackCooldown()
     {
-        yield return new WaitForSeconds(0.2f); // Thời gian bị khóa input sau khi văng
+        yield return new WaitForSeconds(0.2f);
+
+        CameraFollow camFollow = Camera.main?.GetComponent<CameraFollow>();
+        if (camFollow != null)
+        {
+            camFollow.enabled = true;
+        }
+        // -----------------------------
+
         isKnockedBack = false; // Cho phép điều khiển trở lại
     }
 
