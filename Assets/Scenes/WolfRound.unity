@@ -2606,6 +2606,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1347127100809478477, guid: 4777eafd5f1c82349badbefb61f42b7b, type: 3}
   m_PrefabInstance: {fileID: 1347127100310466671}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &801529598 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 361417520851139436, guid: ac4685600ff1e2a41a52e4560849adee, type: 3}
+  m_PrefabInstance: {fileID: 361417521671638760}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &812439938
 GameObject:
   m_ObjectHideFlags: 0
@@ -4167,6 +4172,7 @@ MonoBehaviour:
   attackHitbox: {fileID: 1254806378}
   searchDuration: 3
   maxHealth: 30
+  xpValue: 50
   healthBarCanvasPrefab: {fileID: 6455163881291888253, guid: b5b94352ee99fb441bb8cb55e0908697, type: 3}
   healthBarAttachPoint: {fileID: 1400274554}
   knockbackPower: 0.5
@@ -5773,6 +5779,7 @@ MonoBehaviour:
   attackHitbox: {fileID: 161495571}
   searchDuration: 3
   maxHealth: 30
+  xpValue: 50
   healthBarCanvasPrefab: {fileID: 6455163881291888253, guid: b5b94352ee99fb441bb8cb55e0908697, type: 3}
   healthBarAttachPoint: {fileID: 1634079149}
   knockbackPower: 0.5
@@ -6048,6 +6055,7 @@ MonoBehaviour:
   attackHitbox: {fileID: 410883076}
   searchDuration: 3
   maxHealth: 30
+  xpValue: 50
   healthBarCanvasPrefab: {fileID: 6455163881291888253, guid: b5b94352ee99fb441bb8cb55e0908697, type: 3}
   healthBarAttachPoint: {fileID: 273327092}
   knockbackPower: 0.5
@@ -7170,6 +7178,7 @@ MonoBehaviour:
   attackHitbox: {fileID: 690060411}
   searchDuration: 3
   maxHealth: 30
+  xpValue: 50
   healthBarCanvasPrefab: {fileID: 6455163881291888253, guid: b5b94352ee99fb441bb8cb55e0908697, type: 3}
   healthBarAttachPoint: {fileID: 905874580}
   knockbackPower: 0.5
@@ -7345,7 +7354,7 @@ PrefabInstance:
     - target: {fileID: 361417520851139438, guid: ac4685600ff1e2a41a52e4560849adee, type: 3}
       propertyPath: pauseMenu
       value: 
-      objectReference: {fileID: 501854734}
+      objectReference: {fileID: 801529598}
     - target: {fileID: 361417521064401216, guid: ac4685600ff1e2a41a52e4560849adee, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -7484,11 +7493,6 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ac4685600ff1e2a41a52e4560849adee, type: 3}
---- !u!4 &364813924683759029 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 1194241941680295919, guid: 858d93b4d692b9e45b74cd8503b0da0f, type: 3}
-  m_PrefabInstance: {fileID: 1550039691512656474}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1347127100310466671
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7573,6 +7577,7 @@ MonoBehaviour:
   attackHitbox: {fileID: 2029987643}
   searchDuration: 3
   maxHealth: 30
+  xpValue: 50
   healthBarCanvasPrefab: {fileID: 6455163881291888253, guid: b5b94352ee99fb441bb8cb55e0908697, type: 3}
   healthBarAttachPoint: {fileID: 192048805}
   knockbackPower: 0.5
