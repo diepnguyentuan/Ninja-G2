@@ -49,13 +49,13 @@ public class PauseMenu : MonoBehaviour
             }
         }
 
-        SceneManager.LoadScene(1);
+        SceneManager.LoadScene(2);
     }
 
     public void ReturnMenu()
     {
         Time.timeScale = 0f;
-        SceneManager.LoadScene(0);
+        SceneManager.LoadScene(1);
     }
 
     // === PHẦN ÂM THANH ===
