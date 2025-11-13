@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 431644968}
-  m_Layer: 7
+  m_Layer: 0
   m_Name: AttackPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -43,7 +43,7 @@ GameObject:
   - component: {fileID: 777134427}
   - component: {fileID: 777134426}
   - component: {fileID: 777134429}
-  m_Layer: 7
+  m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
   m_Icon: {fileID: 0}
@@ -143,7 +143,7 @@ GameObject:
   m_Component:
   - component: {fileID: 882737516}
   - component: {fileID: 882737517}
-  m_Layer: 7
+  m_Layer: 0
   m_Name: Audio Source
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -273,7 +273,7 @@ GameObject:
   - component: {fileID: 7807363161947562935}
   - component: {fileID: 6194597703794346182}
   - component: {fileID: 3168344083384250811}
-  m_Layer: 7
+  m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
   m_Icon: {fileID: 0}
@@ -378,7 +378,7 @@ GameObject:
   - component: {fileID: 364813923369822398}
   - component: {fileID: 364813923369822395}
   - component: {fileID: 364813924878141222}
-  m_Layer: 7
+  m_Layer: 0
   m_Name: SNinja_nosword_idle 2_0
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -534,7 +534,7 @@ MonoBehaviour:
   attackCooldown: 0.35
   attackPoint: {fileID: 431644968}
   attackRange: 1
-  attackDamage: 10
+  attackDamage: 1
   monsterLayer:
     serializedVersion: 2
     m_Bits: 64
@@ -576,7 +576,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 364813924472647794}
-  m_Layer: 7
+  m_Layer: 0
   m_Name: FirePoint
   m_TagString: Untagged
   m_Icon: {fileID: -964228994112308473, guid: 0000000000000000d000000000000000, type: 0}
@@ -607,7 +607,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 364813924581898461}
-  m_Layer: 7
+  m_Layer: 0
   m_Name: HandAnchor
   m_TagString: Untagged
   m_Icon: {fileID: 7148428337604731935, guid: 0000000000000000d000000000000000, type: 0}
@@ -638,7 +638,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1849055977094306494}
-  m_Layer: 7
+  m_Layer: 0
   m_Name: AttackPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
