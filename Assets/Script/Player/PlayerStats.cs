@@ -16,7 +16,7 @@ public class PlayerStats : MonoBehaviour, IDamageable
     [SerializeField] public int expToNextLevel = 100;
 
     [Header("Combat Stats")]
-    [SerializeField] public int maxHealth = 100;
+    [SerializeField] public int maxHealth = 40;
     [SerializeField] public int currentHealth;
     [SerializeField] public int attackDamage = 10;
 
@@ -111,8 +111,20 @@ public class PlayerStats : MonoBehaviour, IDamageable
     }
     void Die()
     {
-        Debug.Log("Player đã chết!");
-        // Có thể thêm animation, respawn, v.v...
+        GameOverManager gm = FindObjectOfType<GameOverManager>();
+        if (gm != null)
+        {
+            gm.ShowGameOver();
+        }
+        else
+        {
+            Debug.LogError("GameOverManager NOT FOUND!");
+        }
     }
+        public void ResetHealth()
+    {
+        currentHealth = maxHealth;
+    }
+
 
 }
